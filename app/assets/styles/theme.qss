@@ -1,0 +1,70 @@
+/* Global Application Stylesheet */
+
+/* Main Window */
+QMainWindow {
+    background-color: #f5f6fa;
+}
+
+/* Scroll Bars */
+QScrollBar:vertical {
+    border: none;
+    background: #f5f6fa;
+    width: 10px;
+    margin: 0px;
+}
+
+QScrollBar::handle:vertical {
+    background: #bdc3c7;
+    min-height: 20px;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #95a5a6;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    border: none;
+    background: none;
+}
+
+/* Menu Bar */
+QMenuBar {
+    background-color: white;
+    border-bottom: 1px solid #e0e0e0;
+    padding: 5px;
+}
+
+QMenuBar::item {
+    padding: 5px 10px;
+    background: transparent;
+}
+
+QMenuBar::item:selected {
+    background-color: #3498db;
+    color: white;
+    border-radius: 4px;
+}
+
+QMenu {
+    background-color: white;
+    border: 1px solid #e0e0e0;
+    padding: 5px;
+}
+
+QMenu::item {
+    padding: 8px 25px;
+    border-radius: 4px;
+}
+
+QMenu::item:selected {
+    background-color: #3498db;
+    color: white;
+}
+
+/* Status Bar */
+QStatusBar {
+    background-color: white;
+    border-top: 1px solid #e0e0e0;
+    color: #7f8c8d;
+}

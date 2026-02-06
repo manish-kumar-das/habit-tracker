@@ -1,26 +1,29 @@
 """
-Main application window - Dark Mode Design
+Main application window - Dark Mode Design with all Tier 1 features
 """
 
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-    QLabel, QMessageBox, QStatusBar
+    QLabel, QMessageBox, QStatusBar, QLineEdit, QComboBox
 )
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QFont
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QAction, QFont, QShortcut, QKeySequence
 from app.ui.today_view import TodayView
 from app.ui.add_habit_dialog import AddHabitDialog
+from app.ui.stats_view import StatsView
+from app.ui.export_dialog import ExportDialog
 from app.utils.constants import WINDOW_TITLE, WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT
 
 
 class MainWindow(QMainWindow):
-    """Main application window - Dark theme"""
+    """Main application window - Dark theme with all features"""
     
     def __init__(self):
         super().__init__()
         self.setup_ui()
         self.setup_menu()
         self.setup_statusbar()
+        self.setup_shortcuts()
     
     def setup_ui(self):
         """Setup the main UI"""
@@ -73,6 +76,85 @@ class MainWindow(QMainWindow):
         header_layout.addStretch()
         
         layout.addLayout(header_layout)
+        
+        # Search and Sort toolbar
+        toolbar_layout = QHBoxLayout()
+        toolbar_layout.setSpacing(12)
+        
+        # Search bar
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("🔍 Search habits...")
+        self.search_input.setFont(QFont("Inter", 13))
+        self.search_input.setFixedHeight(44)
+        self.search_input.setStyleSheet("""
+            QLineEdit {
+                padding: 10px 16px;
+                border: 2px solid #2A2D35;
+                border-radius: 10px;
+                background-color: #1C1F26;
+                color: #E4E6EB;
+                selection-background-color: #4FD1C5;
+            }
+            QLineEdit:focus {
+                border: 2px solid #4FD1C5;
+                background-color: #20232B;
+            }
+        """)
+        self.search_input.textChanged.connect(self.on_search_changed)
+        toolbar_layout.addWidget(self.search_input, stretch=1)
+        
+        # Sort dropdown
+        sort_label = QLabel("Sort:")
+        sort_label.setFont(QFont("Inter", 13))
+        sort_label.setStyleSheet("color: #9AA0A6; background: transparent;")
+        toolbar_layout.addWidget(sort_label)
+        
+        self.sort_combo = QComboBox()
+        self.sort_combo.addItem("📅 Recent", "date_desc")
+        self.sort_combo.addItem("🔤 A → Z", "name_asc")
+        self.sort_combo.addItem("🔤 Z → A", "name_desc")
+        self.sort_combo.addItem("🔥 Highest Streak", "streak_desc")
+        self.sort_combo.addItem("📊 Most Complete", "completion_desc")
+        self.sort_combo.setFont(QFont("Inter", 12))
+        self.sort_combo.setFixedHeight(44)
+        self.sort_combo.setFixedWidth(180)
+        self.sort_combo.setCursor(Qt.PointingHandCursor)
+        self.sort_combo.setStyleSheet("""
+            QComboBox {
+                padding: 10px 16px;
+                border: 2px solid #2A2D35;
+                border-radius: 10px;
+                background-color: #1C1F26;
+                color: #E4E6EB;
+            }
+            QComboBox:hover {
+                border: 2px solid #4FD1C5;
+            }
+            QComboBox::drop-down {
+                border: none;
+                padding-right: 12px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 6px solid #9AA0A6;
+                margin-right: 8px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #1C1F26;
+                border: 1px solid #2A2D35;
+                border-radius: 8px;
+                padding: 4px;
+                color: #E4E6EB;
+                selection-background-color: #4FD1C5;
+                selection-color: #0F1115;
+            }
+        """)
+        self.sort_combo.currentIndexChanged.connect(self.on_sort_changed)
+        toolbar_layout.addWidget(self.sort_combo)
+        
+        layout.addLayout(toolbar_layout)
         
         # Today view (main content)
         self.today_view = TodayView()
@@ -145,10 +227,22 @@ class MainWindow(QMainWindow):
         # File menu
         file_menu = menubar.addMenu("&File")
         
+        add_action = QAction("&New Habit", self)
+        add_action.setShortcut("Ctrl+N")
+        add_action.triggered.connect(self.show_add_habit_dialog)
+        file_menu.addAction(add_action)
+        
         refresh_action = QAction("&Refresh", self)
         refresh_action.setShortcut("F5")
         refresh_action.triggered.connect(self.refresh_view)
         file_menu.addAction(refresh_action)
+        
+        file_menu.addSeparator()
+        
+        export_action = QAction("&Export Data", self)
+        export_action.setShortcut("Ctrl+E")
+        export_action.triggered.connect(self.export_data)
+        file_menu.addAction(export_action)
         
         file_menu.addSeparator()
         
@@ -157,12 +251,37 @@ class MainWindow(QMainWindow):
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
         
+        # View menu
+        view_menu = menubar.addMenu("&View")
+        
+        stats_action = QAction("&Statistics", self)
+        stats_action.setShortcut("Ctrl+S")
+        stats_action.triggered.connect(self.show_statistics)
+        view_menu.addAction(stats_action)
+        
         # Help menu
         help_menu = menubar.addMenu("&Help")
+        
+        shortcuts_action = QAction("&Keyboard Shortcuts", self)
+        shortcuts_action.setShortcut("Ctrl+/")
+        shortcuts_action.triggered.connect(self.show_shortcuts)
+        help_menu.addAction(shortcuts_action)
+        
+        help_menu.addSeparator()
         
         about_action = QAction("&About", self)
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
+    
+    def setup_shortcuts(self):
+        """Setup keyboard shortcuts"""
+        # Focus search bar
+        search_shortcut = QShortcut(QKeySequence("Ctrl+F"), self)
+        search_shortcut.activated.connect(self.focus_search)
+        
+        # Clear search
+        clear_shortcut = QShortcut(QKeySequence("Esc"), self)
+        clear_shortcut.activated.connect(self.clear_search)
     
     def setup_statusbar(self):
         """Setup status bar"""
@@ -176,7 +295,37 @@ class MainWindow(QMainWindow):
             }
         """)
         self.setStatusBar(self.statusbar)
-        self.statusbar.showMessage("Ready")
+        self.update_status()
+    
+    def update_status(self):
+        """Update status bar with habit count"""
+        from app.services.habit_service import get_habit_service
+        habit_service = get_habit_service()
+        habits = habit_service.get_all_habits()
+        
+        completed_today = sum(1 for h in habits if habit_service.is_habit_completed_today(h.id))
+        total = len(habits)
+        
+        self.statusbar.showMessage(f"📊 {completed_today}/{total} habits completed today")
+    
+    def on_search_changed(self, text):
+        """Handle search text change"""
+        self.today_view.filter_habits(text)
+        
+    def on_sort_changed(self, index):
+        """Handle sort option change"""
+        sort_by = self.sort_combo.currentData()
+        self.today_view.sort_habits(sort_by)
+    
+    def focus_search(self):
+        """Focus on search bar"""
+        self.search_input.setFocus()
+        self.search_input.selectAll()
+    
+    def clear_search(self):
+        """Clear search and show all habits"""
+        self.search_input.clear()
+        self.search_input.clearFocus()
     
     def show_add_habit_dialog(self):
         """Show dialog to add new habit"""
@@ -184,11 +333,66 @@ class MainWindow(QMainWindow):
         if dialog.exec():
             self.refresh_view()
             self.statusbar.showMessage("✓ Habit added successfully", 3000)
+            self.update_status()
     
     def refresh_view(self):
         """Refresh the today view"""
         self.today_view.load_habits()
+        self.update_status()
         self.statusbar.showMessage("↻ Refreshed", 2000)
+    
+    def export_data(self):
+        """Export habits data"""
+        dialog = ExportDialog(self)
+        dialog.exec()
+    
+    def show_statistics(self):
+        """Show statistics view"""
+        stats_dialog = StatsView(self)
+        stats_dialog.show()
+    
+    def show_shortcuts(self):
+        """Show keyboard shortcuts"""
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Keyboard Shortcuts")
+        msg.setText("<h3 style='color: #4FD1C5;'>⌨️ Keyboard Shortcuts</h3>")
+        msg.setInformativeText(
+            "<p style='color: #E4E6EB;'><b>General</b></p>"
+            "<p style='color: #9AA0A6;'>"
+            "<b>Ctrl+N</b> - Add new habit<br>"
+            "<b>Ctrl+F</b> - Focus search bar<br>"
+            "<b>F5</b> - Refresh view<br>"
+            "<b>Esc</b> - Clear search<br>"
+            "<b>Ctrl+Q</b> - Quit application<br><br>"
+            "</p>"
+            "<p style='color: #E4E6EB;'><b>Views</b></p>"
+            "<p style='color: #9AA0A6;'>"
+            "<b>Ctrl+S</b> - Statistics<br><br>"
+            "</p>"
+            "<p style='color: #E4E6EB;'><b>Data</b></p>"
+            "<p style='color: #9AA0A6;'>"
+            "<b>Ctrl+E</b> - Export data<br>"
+            "</p>"
+        )
+        msg.setStyleSheet("""
+            QMessageBox {
+                background-color: #1C1F26;
+                min-width: 400px;
+            }
+            QMessageBox QLabel {
+                color: #E4E6EB;
+            }
+            QPushButton {
+                background-color: #4FD1C5;
+                color: #0F1115;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 20px;
+                font-weight: bold;
+                min-width: 80px;
+            }
+        """)
+        msg.exec()
     
     def show_about(self):
         """Show about dialog"""
@@ -204,6 +408,9 @@ class MainWindow(QMainWindow):
             QMessageBox {
                 background-color: #1C1F26;
             }
+            QMessageBox QLabel {
+                color: #E4E6EB;
+            }
             QPushButton {
                 background-color: #4FD1C5;
                 color: #0F1115;
@@ -212,9 +419,6 @@ class MainWindow(QMainWindow):
                 padding: 8px 20px;
                 font-weight: bold;
                 min-width: 80px;
-            }
-            QPushButton:hover {
-                background-color: #45B8AD;
             }
         """)
         msg.exec()

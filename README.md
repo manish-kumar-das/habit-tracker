@@ -35,7 +35,7 @@ A simple, elegant, and powerful desktop application for tracking daily habits an
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/habit-tracker.git
+git clone https://github.com/manish-kumar-das/habit-tracker.git
 cd habit-tracker
 ```
 
@@ -181,9 +181,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👨‍💻 Author
 
-**Your Name**
-- GitHub: [@yourusername](https://github.com/yourusername)
-- Email: your.email@example.com
+**Manish Kumar Das**
+- GitHub: [@manish-kumar-das](https://github.com/manish-kumar-das)
+- Email: manishkumardas7890@gmail.com
 
 ---
 

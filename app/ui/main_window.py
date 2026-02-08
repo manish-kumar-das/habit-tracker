@@ -1,5 +1,5 @@
 """
-Main application window - Dark Mode Design with all Tier 1 features
+Main application window - Dark Mode Design with all Tier 1 & 2 features
 """
 
 from PySide6.QtWidgets import (
@@ -12,6 +12,7 @@ from app.ui.today_view import TodayView
 from app.ui.add_habit_dialog import AddHabitDialog
 from app.ui.stats_view import StatsView
 from app.ui.export_dialog import ExportDialog
+from app.ui.trash_dialog import TrashDialog
 from app.utils.constants import WINDOW_TITLE, WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT
 
 
@@ -244,6 +245,11 @@ class MainWindow(QMainWindow):
         export_action.triggered.connect(self.export_data)
         file_menu.addAction(export_action)
         
+        trash_action = QAction("🗑️ &Trash", self)
+        trash_action.setShortcut("Ctrl+T")
+        trash_action.triggered.connect(self.show_trash)
+        file_menu.addAction(trash_action)
+        
         file_menu.addSeparator()
         
         exit_action = QAction("E&xit", self)
@@ -351,6 +357,13 @@ class MainWindow(QMainWindow):
         stats_dialog = StatsView(self)
         stats_dialog.show()
     
+    def show_trash(self):
+        """Show trash dialog"""
+        trash_dialog = TrashDialog(self)
+        trash_dialog.exec()
+        # Refresh main view in case habits were restored
+        self.refresh_view()
+    
     def show_shortcuts(self):
         """Show keyboard shortcuts"""
         msg = QMessageBox(self)
@@ -367,7 +380,8 @@ class MainWindow(QMainWindow):
             "</p>"
             "<p style='color: #E4E6EB;'><b>Views</b></p>"
             "<p style='color: #9AA0A6;'>"
-            "<b>Ctrl+S</b> - Statistics<br><br>"
+            "<b>Ctrl+S</b> - Statistics<br>"
+            "<b>Ctrl+T</b> - Trash<br><br>"
             "</p>"
             "<p style='color: #E4E6EB;'><b>Data</b></p>"
             "<p style='color: #9AA0A6;'>"

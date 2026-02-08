@@ -1,5 +1,5 @@
 """
-Edit habit dialog - Dark Mode Design
+Edit habit dialog with category support
 """
 
 from PySide6.QtWidgets import (
@@ -9,11 +9,11 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from app.services.habit_service import get_habit_service
-from app.utils.constants import FREQUENCY_DAILY, FREQUENCY_WEEKLY
+from app.utils.constants import FREQUENCY_DAILY, FREQUENCY_WEEKLY, CATEGORIES
 
 
 class EditHabitDialog(QDialog):
-    """Dialog for editing an existing habit - Dark theme"""
+    """Dialog for editing an existing habit"""
     
     def __init__(self, habit, parent=None):
         super().__init__(parent)
@@ -73,6 +73,56 @@ class EditHabitDialog(QDialog):
         """)
         layout.addWidget(self.name_input)
         
+        # Category
+        category_label = QLabel("Category")
+        category_label.setFont(QFont("Inter", 13, QFont.Medium))
+        category_label.setStyleSheet("color: #E4E6EB; background: transparent; margin-top: 8px;")
+        layout.addWidget(category_label)
+        
+        self.category_combo = QComboBox()
+        current_index = 0
+        for i, (category_name, emoji) in enumerate(CATEGORIES):
+            self.category_combo.addItem(f"{emoji} {category_name}", category_name)
+            if category_name == self.habit.category:
+                current_index = i
+        self.category_combo.setCurrentIndex(current_index)
+        self.category_combo.setFont(QFont("Inter", 13))
+        self.category_combo.setFixedHeight(48)
+        self.category_combo.setCursor(Qt.PointingHandCursor)
+        self.category_combo.setStyleSheet("""
+            QComboBox {
+                padding: 12px 16px;
+                border: 2px solid #2A2D35;
+                border-radius: 10px;
+                background-color: #20232B;
+                color: #E4E6EB;
+            }
+            QComboBox:hover {
+                border: 2px solid #4FD1C5;
+            }
+            QComboBox::drop-down {
+                border: none;
+                padding-right: 12px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 6px solid #9AA0A6;
+                margin-right: 8px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #20232B;
+                border: 1px solid #2A2D35;
+                border-radius: 8px;
+                padding: 4px;
+                color: #E4E6EB;
+                selection-background-color: #4FD1C5;
+                selection-color: #0F1115;
+            }
+        """)
+        layout.addWidget(self.category_combo)
+        
         # Description
         desc_label = QLabel("Description (Optional)")
         desc_label.setFont(QFont("Inter", 13, QFont.Medium))
@@ -109,7 +159,6 @@ class EditHabitDialog(QDialog):
         self.frequency_combo.addItem("📅 Daily", FREQUENCY_DAILY)
         self.frequency_combo.addItem("📆 Weekly", FREQUENCY_WEEKLY)
         
-        # Set current frequency
         if self.habit.frequency == FREQUENCY_WEEKLY:
             self.frequency_combo.setCurrentIndex(1)
         else:
@@ -210,57 +259,16 @@ class EditHabitDialog(QDialog):
         """Validate and save the habit changes"""
         name = self.name_input.text().strip()
         description = self.desc_input.toPlainText().strip()
+        category = self.category_combo.currentData()
         frequency = self.frequency_combo.currentData()
         
         if not name:
-            msg = QMessageBox(self)
-            msg.setIcon(QMessageBox.Warning)
-            msg.setWindowTitle("Validation Error")
-            msg.setText("Please enter a habit name")
-            msg.setStyleSheet("""
-                QMessageBox {
-                    background-color: #1C1F26;
-                }
-                QMessageBox QLabel {
-                    color: #E4E6EB;
-                }
-                QPushButton {
-                    background-color: #4FD1C5;
-                    color: #0F1115;
-                    border: none;
-                    border-radius: 6px;
-                    padding: 8px 20px;
-                    font-weight: bold;
-                    min-width: 80px;
-                }
-            """)
-            msg.exec()
+            self.show_error("Validation Error", "Please enter a habit name")
             self.name_input.setFocus()
             return
         
         if len(name) > 100:
-            msg = QMessageBox(self)
-            msg.setIcon(QMessageBox.Warning)
-            msg.setWindowTitle("Validation Error")
-            msg.setText("Habit name is too long (max 100 characters)")
-            msg.setStyleSheet("""
-                QMessageBox {
-                    background-color: #1C1F26;
-                }
-                QMessageBox QLabel {
-                    color: #E4E6EB;
-                }
-                QPushButton {
-                    background-color: #4FD1C5;
-                    color: #0F1115;
-                    border: none;
-                    border-radius: 6px;
-                    padding: 8px 20px;
-                    font-weight: bold;
-                    min-width: 80px;
-                }
-            """)
-            msg.exec()
+            self.show_error("Validation Error", "Habit name is too long (max 100 characters)")
             self.name_input.setFocus()
             return
         
@@ -269,29 +277,34 @@ class EditHabitDialog(QDialog):
                 self.habit.id,
                 name=name,
                 description=description,
+                category=category,
                 frequency=frequency
             )
             self.accept()
         except Exception as e:
-            msg = QMessageBox(self)
-            msg.setIcon(QMessageBox.Critical)
-            msg.setWindowTitle("Error")
-            msg.setText(f"Failed to update habit:\n{str(e)}")
-            msg.setStyleSheet("""
-                QMessageBox {
-                    background-color: #1C1F26;
-                }
-                QMessageBox QLabel {
-                    color: #E4E6EB;
-                }
-                QPushButton {
-                    background-color: #EF5350;
-                    color: #FFFFFF;
-                    border: none;
-                    border-radius: 6px;
-                    padding: 8px 20px;
-                    font-weight: bold;
-                    min-width: 80px;
-                }
-            """)
-            msg.exec()
+            self.show_error("Error", f"Failed to update habit:\n{str(e)}")
+    
+    def show_error(self, title, message):
+        """Show error message"""
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle(title)
+        msg.setText(message)
+        msg.setStyleSheet("""
+            QMessageBox {
+                background-color: #1C1F26;
+            }
+            QMessageBox QLabel {
+                color: #E4E6EB;
+            }
+            QPushButton {
+                background-color: #4FD1C5;
+                color: #0F1115;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 20px;
+                font-weight: bold;
+                min-width: 80px;
+            }
+        """)
+        msg.exec()

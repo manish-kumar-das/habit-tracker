@@ -14,6 +14,9 @@ from app.ui.stats_view import StatsView
 from app.ui.export_dialog import ExportDialog
 from app.ui.trash_dialog import TrashDialog
 from app.utils.constants import WINDOW_TITLE, WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT
+from app.ui.settings_dialog import SettingsDialog
+from app.services.settings_service import get_settings_service
+from app.utils.themes import apply_theme, get_dark_colors, get_light_colors
 
 
 class MainWindow(QMainWindow):
@@ -265,6 +268,14 @@ class MainWindow(QMainWindow):
         stats_action.triggered.connect(self.show_statistics)
         view_menu.addAction(stats_action)
         
+        # Settings menu
+        settings_menu = menubar.addMenu("&Settings")
+
+        preferences_action = QAction("&Preferences", self)
+        preferences_action.setShortcut("Ctrl+,")
+        preferences_action.triggered.connect(self.show_settings)
+        settings_menu.addAction(preferences_action)
+
         # Help menu
         help_menu = menubar.addMenu("&Help")
         
@@ -436,3 +447,44 @@ class MainWindow(QMainWindow):
             }
         """)
         msg.exec()
+
+    def apply_theme(self, theme_name):
+        """Apply theme to main window and update colors"""
+        from app.utils.themes import apply_theme
+        
+        if theme_name == 'light':
+            colors = get_light_colors()
+            self.setStyleSheet(f"""
+                QMainWindow {{
+                    background-color: {colors['bg_primary']};
+                }}
+            """)
+        
+            # Update central widget
+            self.centralWidget().setStyleSheet(f"background-color: {colors['bg_primary']};")
+        
+            # Update header labels
+            for label in self.findChildren(QLabel):
+                if "Today's Habits" in label.text():
+                    label.setStyleSheet(f"color: {colors['text_primary']}; background: transparent;")
+                elif label.styleSheet() and "#9AA0A6" in label.styleSheet():
+                    label.setStyleSheet(f"color: {colors['text_secondary']}; background: transparent;")
+        
+        else:  # dark theme
+            colors = get_dark_colors()
+            self.setStyleSheet(f"""
+                QMainWindow {{
+                    background-color: {colors['bg_primary']};
+                }}
+            """)
+        
+            # Update central widget
+            self.centralWidget().setStyleSheet(f"background-color: {colors['bg_primary']};")
+    
+        # Force reload of today view
+        self.today_view.load_habits()
+    
+    def show_settings(self):
+        """Show settings dialog"""
+        settings_dialog = SettingsDialog(self)
+        settings_dialog.exec()

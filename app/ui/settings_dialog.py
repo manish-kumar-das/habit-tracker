@@ -1,10 +1,10 @@
 """
-Settings dialog with theme switcher
+Settings dialog with theme switcher - FIXED
 """
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
-    QPushButton, QCheckBox, QComboBox, QTimeEdit, QFrame
+    QPushButton, QCheckBox, QComboBox, QTimeEdit, QFrame, QMessageBox
 )
 from PySide6.QtCore import Qt, QTime
 from PySide6.QtGui import QFont
@@ -177,6 +177,7 @@ class SettingsDialog(QDialog):
         
         # Enable notifications
         self.notifications_checkbox = QCheckBox()
+        self.notifications_checkbox.setCursor(Qt.PointingHandCursor)
         self.notifications_checkbox.setStyleSheet("""
             QCheckBox::indicator {
                 width: 24px;
@@ -193,7 +194,7 @@ class SettingsDialog(QDialog):
                 border: 2px solid #4FD1C5;
             }
         """)
-        self.notifications_checkbox.stateChanged.connect(self.on_notifications_changed)
+        # DON'T connect stateChanged here - we'll save on button click
         
         notif_item = SettingItem(
             "Daily Reminders",
@@ -207,6 +208,7 @@ class SettingsDialog(QDialog):
         self.time_edit.setDisplayFormat("HH:mm")
         self.time_edit.setFixedHeight(44)
         self.time_edit.setFixedWidth(120)
+        self.time_edit.setCursor(Qt.PointingHandCursor)
         self.time_edit.setStyleSheet("""
             QTimeEdit {
                 padding: 10px 16px;
@@ -228,7 +230,6 @@ class SettingsDialog(QDialog):
                 background-color: #4FD1C5;
             }
         """)
-        self.time_edit.timeChanged.connect(self.on_time_changed)
         
         time_item = SettingItem(
             "Notification Time",
@@ -262,7 +263,7 @@ class SettingsDialog(QDialog):
                     stop:0 #3A9D93, stop:1 #5A5ECD);
             }
         """)
-        save_btn.clicked.connect(self.save_and_close)
+        save_btn.clicked.connect(self.save_settings)
         layout.addWidget(save_btn)
     
     def load_settings(self):
@@ -292,24 +293,23 @@ class SettingsDialog(QDialog):
         if self.main_window:
             self.main_window.apply_theme(theme)
     
-    def on_notifications_changed(self, state):
-        """Handle notification toggle"""
-        enabled = state == Qt.Checked
+    def save_settings(self):
+        """Save all settings"""
+        # Save notifications
+        enabled = self.notifications_checkbox.isChecked()
         self.settings_service.set_notifications_enabled(enabled)
-    
-    def on_time_changed(self, time):
-        """Handle notification time change"""
+        
+        # Save notification time
+        time = self.time_edit.time()
         time_str = time.toString("HH:mm")
         self.settings_service.set_notification_time(time_str)
-    
-    def save_and_close(self):
-        """Save settings and close"""
-        from PySide6.QtWidgets import QMessageBox
         
+        # Show success message
         msg = QMessageBox(self)
         msg.setIcon(QMessageBox.Information)
         msg.setWindowTitle("Settings Saved")
         msg.setText("✓ Settings saved successfully!")
+        msg.setInformativeText(f"Notifications: {'Enabled' if enabled else 'Disabled'}\nReminder time: {time_str}")
         msg.setStyleSheet("""
             QMessageBox {
                 background-color: #1C1F26;
@@ -329,4 +329,5 @@ class SettingsDialog(QDialog):
         """)
         msg.exec()
         
-        self.accept()
+        # Reload settings to confirm
+        self.load_settings()

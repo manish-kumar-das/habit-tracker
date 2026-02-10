@@ -12,11 +12,16 @@ from app.ui.main_window import MainWindow
 
 def load_stylesheet(app):
     """Load application stylesheet"""
-    stylesheet_path = os.path.join("app", "assets", "styles", "theme.qss")
+    from app.services.settings_service import get_settings_service
+    from app.utils.themes import DARK_THEME, LIGHT_THEME
     
-    if os.path.exists(stylesheet_path):
-        with open(stylesheet_path, "r") as f:
-            app.setStyleSheet(f.read())
+    settings = get_settings_service()
+    theme = settings.get_theme()
+    
+    if theme == 'light':
+        app.setStyleSheet(LIGHT_THEME)
+    else:
+        app.setStyleSheet(DARK_THEME)
 
 
 def main():
@@ -40,8 +45,17 @@ def main():
     window = MainWindow()
     window.show()
     
+    # Start scheduler for daily reminders
+    from app.services.scheduler_service import get_scheduler_service
+    scheduler = get_scheduler_service()
+    
     # Start event loop
-    sys.exit(app.exec())
+    exit_code = app.exec()
+    
+    # Cleanup
+    scheduler.stop()
+    
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

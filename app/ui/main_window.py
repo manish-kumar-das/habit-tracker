@@ -262,11 +262,17 @@ class MainWindow(QMainWindow):
         
         # View menu
         view_menu = menubar.addMenu("&View")
-        
+
         stats_action = QAction("&Statistics", self)
         stats_action.setShortcut("Ctrl+S")
         stats_action.triggered.connect(self.show_statistics)
         view_menu.addAction(stats_action)
+
+        # NEW: Calendar action
+        calendar_action = QAction("&Calendar", self)
+        calendar_action.setShortcut("Ctrl+K")
+        calendar_action.triggered.connect(self.show_calendar)
+        view_menu.addAction(calendar_action)
         
         # Settings menu
         settings_menu = menubar.addMenu("&Settings")
@@ -488,3 +494,9 @@ class MainWindow(QMainWindow):
         """Show settings dialog"""
         settings_dialog = SettingsDialog(self)
         settings_dialog.exec()
+
+    def show_calendar(self):
+        """Show calendar view"""
+        from app.ui.calendar_view import CalendarView
+        calendar_dialog = CalendarView(self)
+        calendar_dialog.show()

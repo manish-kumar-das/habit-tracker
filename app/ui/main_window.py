@@ -189,121 +189,6 @@ class MainWindow(QMainWindow):
         add_button.clicked.connect(self.show_add_habit_dialog)
         layout.addWidget(add_button)
     
-    #     """Setup menu bar"""
-    #     menubar = self.menuBar()
-    #     menubar.setStyleSheet("""
-    #         QMenuBar {
-    #             background-color: #1C1F26;
-    #             border-bottom: 1px solid #2A2D35;
-    #             padding: 6px;
-    #             color: #E4E6EB;
-    #         }
-    #         QMenuBar::item {
-    #             padding: 8px 12px;
-    #             background: transparent;
-    #             color: #E4E6EB;
-    #             border-radius: 6px;
-    #         }
-    #         QMenuBar::item:selected {
-    #             background-color: #4FD1C5;
-    #             color: #0F1115;
-    #         }
-    #         QMenu {
-    #             background-color: #1C1F26;
-    #             border: 1px solid #2A2D35;
-    #             border-radius: 8px;
-    #             padding: 8px;
-    #             color: #E4E6EB;
-    #         }
-    #         QMenu::item {
-    #             padding: 10px 24px;
-    #             border-radius: 6px;
-    #             color: #E4E6EB;
-    #         }
-    #         QMenu::item:selected {
-    #             background-color: #20232B;
-    #             color: #4FD1C5;
-    #         }
-    #     """)
-        
-    #     # File menu
-    #     file_menu = menubar.addMenu("&File")
-        
-    #     add_action = QAction("&New Habit", self)
-    #     add_action.setShortcut("Ctrl+N")
-    #     add_action.triggered.connect(self.show_add_habit_dialog)
-    #     file_menu.addAction(add_action)
-        
-    #     refresh_action = QAction("&Refresh", self)
-    #     refresh_action.setShortcut("F5")
-    #     refresh_action.triggered.connect(self.refresh_view)
-    #     file_menu.addAction(refresh_action)
-        
-    #     file_menu.addSeparator()
-        
-    #     export_action = QAction("&Export Data", self)
-    #     export_action.setShortcut("Ctrl+E")
-    #     export_action.triggered.connect(self.export_data)
-    #     file_menu.addAction(export_action)
-        
-    #     trash_action = QAction("🗑️ &Trash", self)
-    #     trash_action.setShortcut("Ctrl+T")
-    #     trash_action.triggered.connect(self.show_trash)
-    #     file_menu.addAction(trash_action)
-        
-    #     file_menu.addSeparator()
-        
-    #     exit_action = QAction("E&xit", self)
-    #     exit_action.setShortcut("Ctrl+Q")
-    #     exit_action.triggered.connect(self.close)
-    #     file_menu.addAction(exit_action)
-        
-    #     # View menu:
-    #     view_menu = menubar.addMenu("&View")
-
-    #     stats_action = QAction("&Statistics", self)
-    #     stats_action.setShortcut("Ctrl+S")
-    #     stats_action.triggered.connect(self.show_statistics)
-    #     view_menu.addAction(stats_action)
-
-    #     # NEW: Analytics action
-    #     analytics_action = QAction("&Analytics", self)
-    #     analytics_action.setShortcut("Ctrl+A")
-    #     analytics_action.triggered.connect(self.show_analytics)
-    #     view_menu.addAction(analytics_action)
-
-    #     calendar_action = QAction("&Calendar", self)
-    #     calendar_action.setShortcut("Ctrl+K")
-    #     calendar_action.triggered.connect(self.show_calendar)
-    #     view_menu.addAction(calendar_action)
-
-    #     # NEW: Calendar action
-    #     calendar_action = QAction("&Calendar", self)
-    #     calendar_action.setShortcut("Ctrl+K")
-    #     calendar_action.triggered.connect(self.show_calendar)
-    #     view_menu.addAction(calendar_action)
-        
-    #     # Settings menu
-    #     settings_menu = menubar.addMenu("&Settings")
-
-    #     preferences_action = QAction("&Preferences", self)
-    #     preferences_action.setShortcut("Ctrl+,")
-    #     preferences_action.triggered.connect(self.show_settings)
-    #     settings_menu.addAction(preferences_action)
-
-    #     # Help menu
-    #     help_menu = menubar.addMenu("&Help")
-        
-    #     shortcuts_action = QAction("&Keyboard Shortcuts", self)
-    #     shortcuts_action.setShortcut("Ctrl+/")
-    #     shortcuts_action.triggered.connect(self.show_shortcuts)
-    #     help_menu.addAction(shortcuts_action)
-        
-    #     help_menu.addSeparator()
-        
-    #     about_action = QAction("&About", self)
-    #     about_action.triggered.connect(self.show_about)
-    #     help_menu.addAction(about_action)
     
     def setup_menu(self):
         """Setup menu bar"""
@@ -372,7 +257,7 @@ class MainWindow(QMainWindow):
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
     
-        # View menu - FIXED: No duplicates, unique shortcuts
+        # View menu 
         view_menu = menubar.addMenu("&View")
     
         stats_action = QAction("&Statistics", self)
@@ -390,6 +275,16 @@ class MainWindow(QMainWindow):
         calendar_action.triggered.connect(self.show_calendar)
         view_menu.addAction(calendar_action)
     
+        goals_action = QAction("&Goals", self)
+        goals_action.setShortcut("Ctrl+G")
+        goals_action.triggered.connect(self.show_goals)
+        view_menu.addAction(goals_action)
+
+        achievements_action = QAction("A&chievements", self)
+        achievements_action.setShortcut("Ctrl+B")  # B for Badges
+        achievements_action.triggered.connect(self.show_achievements)
+        view_menu.addAction(achievements_action)
+
         # Settings menu
         settings_menu = menubar.addMenu("&Settings")
     
@@ -613,62 +508,6 @@ class MainWindow(QMainWindow):
         analytics_dialog = AnalyticsView(self)
         analytics_dialog.show()
 
-    # def show_keyboard_shortcuts(self):
-    #     """Show keyboard shortcuts help"""
-    #     shortcuts_text = """
-    #     <h2 style='color: #4FD1C5;'>⌨️ Keyboard Shortcuts</h2>
-    
-    #     <h3 style='color: #E4E6EB;'>General</h3>
-    #     <table style='color: #E4E6EB;'>
-    #         <tr><td><b>Ctrl+N</b></td><td>Add New Habit</td></tr>
-    #         <tr><td><b>Ctrl+Q</b></td><td>Quit Application</td></tr>
-    #     </table>
-    
-    #     <h3 style='color: #E4E6EB;'>Views</h3>
-    #     <table style='color: #E4E6EB;'>
-    #         <tr><td><b>Ctrl+S</b></td><td>Statistics</td></tr>
-    #         <tr><td><b>Ctrl+A</b></td><td>Analytics Dashboard</td></tr>
-    #         <tr><td><b>Ctrl+L</b></td><td>Calendar View</td></tr>
-    #     </table>
-    
-    #     <h3 style='color: #E4E6EB;'>Data</h3>
-    #     <table style='color: #E4E6EB;'>
-    #         <tr><td><b>Ctrl+E</b></td><td>Export Data</td></tr>
-    #         <tr><td><b>Ctrl+T</b></td><td>Trash / Deleted Habits</td></tr>
-    #     </table>
-    
-    #     <h3 style='color: #E4E6EB;'>Settings</h3>
-    #     <table style='color: #E4E6EB;'>
-    #         <tr><td><b>Ctrl+,</b></td><td>Preferences</td></tr>
-    #         <tr><td><b>Ctrl+H</b></td><td>Show This Help</td></tr>
-    #     </table>
-    #     """
-    
-    #     msg = QMessageBox(self)
-    #     msg.setWindowTitle("Keyboard Shortcuts")
-    #     msg.setTextFormat(Qt.RichText)
-    #     msg.setText(shortcuts_text)
-    #     msg.setStyleSheet("""
-    #     QMessageBox {
-    #         background-color: #1C1F26;
-    #     }
-    #     QMessageBox QLabel {
-    #         color: #E4E6EB;
-    #     }
-    #     QPushButton {
-    #         background-color: #4FD1C5;
-    #         color: #0F1115;
-    #         border: none;
-    #         border-radius: 6px;
-    #         padding: 8px 20px;
-    #         font-weight: bold;
-    #         min-width: 80px;
-    #     }
-    #     QPushButton:hover {
-    #         background-color: #45B8AD;
-    #     }
-    # """)
-    #     msg.exec()
     def show_keyboard_shortcuts(self):
         """Show keyboard shortcuts help"""
         shortcuts_text = """
@@ -725,3 +564,15 @@ class MainWindow(QMainWindow):
             }
         """)
         msg.exec()
+
+    def show_goals(self):
+        """Show goals & milestones"""
+        from app.ui.goals_view import GoalsView
+        goals_dialog = GoalsView(self)
+        goals_dialog.show()
+
+    def show_achievements(self):
+        """Show achievements & badges"""
+        from app.ui.achievements_view import AchievementsView
+        achievements_dialog = AchievementsView(self)
+        achievements_dialog.show()

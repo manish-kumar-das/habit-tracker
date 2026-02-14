@@ -1,28 +1,28 @@
 """
-Trash dialog - View and restore deleted habits
+Trash dialog for managing deleted habits
 """
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
-    QPushButton, QScrollArea, QFrame, QMessageBox, QWidget
+    QPushButton, QScrollArea, QFrame, QWidget, QMessageBox
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QCursor
 from app.services.habit_service import get_habit_service
 
 
 class DeletedHabitItem(QFrame):
     """Single deleted habit item"""
     
-    def __init__(self, deleted_habit, parent_dialog, parent=None):
+    def __init__(self, deleted_habit, parent=None):
         super().__init__(parent)
         self.deleted_habit = deleted_habit
-        self.parent_dialog = parent_dialog
+        self.parent_dialog = parent
         self.habit_service = get_habit_service()
         self.setup_ui()
     
     def setup_ui(self):
-        """Setup the item UI"""
+        """Setup deleted habit item UI"""
         self.setFrameShape(QFrame.NoFrame)
         self.setStyleSheet("""
             DeletedHabitItem {
@@ -32,7 +32,7 @@ class DeletedHabitItem(QFrame):
             }
             DeletedHabitItem:hover {
                 background-color: #20232B;
-                border: 1px solid #F2C94C;
+                border: 1px solid #EF4444;
             }
         """)
         self.setMinimumHeight(80)
@@ -41,60 +41,88 @@ class DeletedHabitItem(QFrame):
         layout.setContentsMargins(20, 16, 20, 16)
         layout.setSpacing(16)
         
-        # Icon
-        icon_label = QLabel("🗑️")
-        icon_label.setFont(QFont("Inter", 24))
-        icon_label.setStyleSheet("background: transparent;")
-        layout.addWidget(icon_label)
-        
-        # Habit info
+        # Info section
         info_layout = QVBoxLayout()
-        info_layout.setSpacing(4)
+        info_layout.setSpacing(6)
         
-        # Name
+        # Name with category
+        try:
+            category = self.deleted_habit['category']
+        except (KeyError, TypeError):
+            category = None
+        
+        if category:
+            from app.utils.constants import CATEGORIES
+            category_emoji = "📌"
+            for cat_name, emoji in CATEGORIES:
+                if cat_name == category:
+                    category_emoji = emoji
+                    break
+            
+            category_badge = QLabel(f"{category_emoji} {category}")
+            category_badge.setFont(QFont("Inter", 10, QFont.Medium))
+            category_badge.setStyleSheet("""
+                QLabel {
+                    color: #EF4444;
+                    background-color: rgba(239, 68, 68, 0.1);
+                    padding: 4px 10px;
+                    border-radius: 10px;
+                }
+            """)
+            info_layout.addWidget(category_badge)
+        
+        # Habit name
         name_label = QLabel(self.deleted_habit['name'])
         name_label.setFont(QFont("Inter", 15, QFont.Medium))
         name_label.setStyleSheet("color: #E4E6EB; background: transparent;")
         info_layout.addWidget(name_label)
         
-        # Details
-        details_parts = []
-        if self.deleted_habit.get('category'):
-            details_parts.append(f"Category: {self.deleted_habit['category']}")
-        details_parts.append(f"Deleted: {self.deleted_habit['deleted_at']}")
-        details_parts.append(f"{self.deleted_habit['completion_count']} completions")
+        # Metadata
+        meta_layout = QHBoxLayout()
+        meta_layout.setSpacing(12)
         
-        details_label = QLabel(" • ".join(details_parts))
-        details_label.setFont(QFont("Inter", 11))
-        details_label.setStyleSheet("color: #9AA0A6; background: transparent;")
-        info_layout.addWidget(details_label)
+        # Deleted date
+        deleted_label = QLabel(f"🗑️ Deleted: {self.deleted_habit['deleted_at'][:10]}")
+        deleted_label.setFont(QFont("Inter", 11))
+        deleted_label.setStyleSheet("color: #9AA0A6; background: transparent;")
+        meta_layout.addWidget(deleted_label)
+        
+        # Completion count
+        try:
+            count = self.deleted_habit['completion_count']
+        except (KeyError, TypeError):
+            count = 0
+        
+        count_label = QLabel(f"✅ {count} completions")
+        count_label.setFont(QFont("Inter", 11))
+        count_label.setStyleSheet("color: #9AA0A6; background: transparent;")
+        meta_layout.addWidget(count_label)
+        
+        meta_layout.addStretch()
+        info_layout.addLayout(meta_layout)
         
         layout.addLayout(info_layout, stretch=1)
         
         # Restore button
         restore_btn = QPushButton("↩️ Restore")
-        restore_btn.setFont(QFont("Inter", 13, QFont.Medium))
-        restore_btn.setFixedHeight(40)
+        restore_btn.setFont(QFont("Inter", 12, QFont.Medium))
+        restore_btn.setFixedSize(100, 40)
         restore_btn.setCursor(Qt.PointingHandCursor)
         restore_btn.setStyleSheet("""
             QPushButton {
-                padding: 8px 20px;
-                border: none;
-                border-radius: 8px;
-                color: #FFFFFF;
-                background-color: #6FCF97;
+                background-color: transparent;
+                border: 1px solid #4FD1C5;
+                border-radius: 10px;
+                color: #4FD1C5;
             }
             QPushButton:hover {
-                background-color: #5AB67D;
-            }
-            QPushButton:pressed {
-                background-color: #4A9D6A;
+                background-color: rgba(79, 209, 197, 0.2);
             }
         """)
         restore_btn.clicked.connect(self.restore_habit)
         layout.addWidget(restore_btn)
         
-        # Permanent delete button
+        # Delete permanently button
         delete_btn = QPushButton("✕")
         delete_btn.setFixedSize(40, 40)
         delete_btn.setCursor(Qt.PointingHandCursor)
@@ -112,83 +140,26 @@ class DeletedHabitItem(QFrame):
                 color: #EF5350;
             }
         """)
-        delete_btn.clicked.connect(self.permanent_delete)
+        delete_btn.clicked.connect(self.delete_permanently)
         layout.addWidget(delete_btn)
     
     def restore_habit(self):
-        """Restore this deleted habit"""
-        msg = QMessageBox(self)
-        msg.setWindowTitle("Restore Habit")
-        msg.setText(f"Restore '{self.deleted_habit['name']}'?")
-        msg.setInformativeText("The habit will be restored to your active habits list.")
-        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-        msg.setDefaultButton(QMessageBox.Yes)
-        msg.setStyleSheet("""
-            QMessageBox {
-                background-color: #1C1F26;
-            }
-            QMessageBox QLabel {
-                color: #E4E6EB;
-            }
-            QPushButton {
-                background-color: #20232B;
-                color: #E4E6EB;
-                border: 1px solid #4A4D56;
-                border-radius: 6px;
-                padding: 8px 16px;
-                min-width: 80px;
-            }
-            QPushButton:hover {
-                background-color: #2A2D35;
-                border: 1px solid #6FCF97;
-            }
-        """)
-        
-        if msg.exec() == QMessageBox.Yes:
-            restored = self.habit_service.restore_habit(self.deleted_habit['id'])
-            if restored:
-                self.parent_dialog.load_deleted_habits()
-                
-                # Show success message
-                success_msg = QMessageBox(self)
-                success_msg.setIcon(QMessageBox.Information)
-                success_msg.setWindowTitle("Habit Restored")
-                success_msg.setText(f"✓ '{self.deleted_habit['name']}' has been restored!")
-                success_msg.setStyleSheet("""
-                    QMessageBox {
-                        background-color: #1C1F26;
-                    }
-                    QMessageBox QLabel {
-                        color: #E4E6EB;
-                    }
-                    QPushButton {
-                        background-color: #6FCF97;
-                        color: #0F1115;
-                        border: none;
-                        border-radius: 6px;
-                        padding: 8px 20px;
-                        font-weight: bold;
-                        min-width: 80px;
-                    }
-                """)
-                success_msg.exec()
+        """Restore this habit"""
+        self.habit_service.restore_habit(self.deleted_habit['id'])
+        if self.parent_dialog:
+            self.parent_dialog.load_deleted_habits()
     
-    def permanent_delete(self):
-        """Permanently delete this habit from trash"""
+    def delete_permanently(self):
+        """Delete permanently"""
         msg = QMessageBox(self)
-        msg.setIcon(QMessageBox.Warning)
-        msg.setWindowTitle("Permanent Delete")
+        msg.setWindowTitle("Delete Permanently")
         msg.setText(f"Permanently delete '{self.deleted_habit['name']}'?")
-        msg.setInformativeText("This action cannot be undone. The habit will be removed from trash forever.")
+        msg.setInformativeText("This action cannot be undone!")
         msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         msg.setDefaultButton(QMessageBox.No)
         msg.setStyleSheet("""
-            QMessageBox {
-                background-color: #1C1F26;
-            }
-            QMessageBox QLabel {
-                color: #E4E6EB;
-            }
+            QMessageBox { background-color: #1C1F26; }
+            QMessageBox QLabel { color: #E4E6EB; }
             QPushButton {
                 background-color: #20232B;
                 color: #E4E6EB;
@@ -204,14 +175,20 @@ class DeletedHabitItem(QFrame):
         """)
         
         if msg.exec() == QMessageBox.Yes:
-            # Remove from deleted_habits table
-            query = "DELETE FROM deleted_habits WHERE id = ?"
-            self.habit_service.db.execute(query, (self.deleted_habit['id'],))
-            self.parent_dialog.load_deleted_habits()
+            conn = self.habit_service.habit_service.get_db_connection() if hasattr(self.habit_service, 'habit_service') else get_habit_service()
+            from app.db.database import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM deleted_habits WHERE id = ?', (self.deleted_habit['id'],))
+            conn.commit()
+            conn.close()
+            
+            if self.parent_dialog:
+                self.parent_dialog.load_deleted_habits()
 
 
 class TrashDialog(QDialog):
-    """Trash dialog - view and restore deleted habits"""
+    """Dialog for managing deleted habits (trash)"""
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -220,15 +197,11 @@ class TrashDialog(QDialog):
         self.load_deleted_habits()
     
     def setup_ui(self):
-        """Setup the dialog UI"""
+        """Setup dialog UI"""
         self.setWindowTitle("Trash")
-        self.setModal(False)
-        self.setMinimumSize(700, 500)
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #0F1115;
-            }
-        """)
+        self.setModal(True)
+        self.setMinimumSize(800, 600)
+        self.setStyleSheet("QDialog { background-color: #0F1115; }")
         
         layout = QVBoxLayout(self)
         layout.setContentsMargins(32, 24, 32, 24)
@@ -237,56 +210,43 @@ class TrashDialog(QDialog):
         # Header
         header_layout = QHBoxLayout()
         
-        header_left = QVBoxLayout()
-        header_left.setSpacing(4)
-        
         title = QLabel("🗑️ Trash")
         title.setFont(QFont("Inter", 28, QFont.Bold))
         title.setStyleSheet("color: #E4E6EB; background: transparent;")
-        header_left.addWidget(title)
+        header_layout.addWidget(title)
         
-        subtitle = QLabel("Recently deleted habits")
-        subtitle.setFont(QFont("Inter", 14))
-        subtitle.setStyleSheet("color: #9AA0A6; background: transparent;")
-        header_left.addWidget(subtitle)
-        
-        header_layout.addLayout(header_left)
         header_layout.addStretch()
         
         # Empty trash button
-        self.empty_btn = QPushButton("🗑️ Empty Trash")
-        self.empty_btn.setFont(QFont("Inter", 13, QFont.Medium))
-        self.empty_btn.setFixedHeight(44)
-        self.empty_btn.setCursor(Qt.PointingHandCursor)
-        self.empty_btn.setStyleSheet("""
+        empty_btn = QPushButton("Empty Trash")
+        empty_btn.setFont(QFont("Inter", 12, QFont.Bold))
+        empty_btn.setFixedHeight(44)
+        empty_btn.setCursor(Qt.PointingHandCursor)
+        empty_btn.setStyleSheet("""
             QPushButton {
-                padding: 10px 20px;
-                border: 2px solid #4A4D56;
+                padding: 10px 24px;
+                border: none;
                 border-radius: 10px;
-                color: #EF5350;
-                background-color: transparent;
+                color: #FFFFFF;
+                background-color: #EF4444;
             }
             QPushButton:hover {
-                border: 2px solid #EF5350;
-                background-color: rgba(239, 83, 80, 0.1);
-            }
-            QPushButton:disabled {
-                color: #4A4D56;
-                border: 2px solid #2A2D35;
+                background-color: #DC2626;
             }
         """)
-        self.empty_btn.clicked.connect(self.empty_trash)
-        header_layout.addWidget(self.empty_btn)
+        empty_btn.clicked.connect(self.empty_trash)
+        header_layout.addWidget(empty_btn)
         
+        # Close button
         close_btn = QPushButton("✕")
-        close_btn.setFixedSize(36, 36)
+        close_btn.setFixedSize(44, 44)
         close_btn.setCursor(Qt.PointingHandCursor)
         close_btn.setFont(QFont("Inter", 16))
         close_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
                 border: 1px solid #4A4D56;
-                border-radius: 18px;
+                border-radius: 22px;
                 color: #9AA0A6;
             }
             QPushButton:hover {
@@ -299,6 +259,12 @@ class TrashDialog(QDialog):
         header_layout.addWidget(close_btn)
         
         layout.addLayout(header_layout)
+        
+        # Subtitle
+        subtitle = QLabel("Deleted habits can be restored or permanently deleted")
+        subtitle.setFont(QFont("Inter", 13))
+        subtitle.setStyleSheet("color: #9AA0A6; background: transparent;")
+        layout.addWidget(subtitle)
         
         # Scroll area
         scroll = QScrollArea()
@@ -313,7 +279,6 @@ class TrashDialog(QDialog):
                 border: none;
                 background: #0F1115;
                 width: 8px;
-                margin: 0px;
             }
             QScrollBar::handle:vertical {
                 background: #4A4D56;
@@ -325,27 +290,26 @@ class TrashDialog(QDialog):
             }
         """)
         
-        # Content widget
-        content = QWidget()
-        content.setStyleSheet("background-color: transparent;")
-        self.content_layout = QVBoxLayout(content)
-        self.content_layout.setSpacing(12)
-        self.content_layout.setContentsMargins(0, 0, 0, 0)
-        self.content_layout.addStretch()
+        self.items_container = QWidget()
+        self.items_container.setStyleSheet("background-color: transparent;")
+        self.items_layout = QVBoxLayout(self.items_container)
+        self.items_layout.setSpacing(12)
+        self.items_layout.setContentsMargins(0, 0, 0, 0)
+        self.items_layout.addStretch()
         
-        scroll.setWidget(content)
+        scroll.setWidget(self.items_container)
         layout.addWidget(scroll)
     
     def load_deleted_habits(self):
-        """Load and display deleted habits"""
-        # Clear existing items
-        while self.content_layout.count() > 1:
-            item = self.content_layout.takeAt(0)
+        """Load deleted habits from trash"""
+        # Clear existing
+        while self.items_layout.count() > 1:
+            item = self.items_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
         
         # Get deleted habits
-        deleted_habits = self.habit_service.get_deleted_habits()
+        deleted_habits = self.habit_service.get_deleted_habits(limit=50)
         
         if not deleted_habits:
             # Empty state
@@ -353,55 +317,36 @@ class TrashDialog(QDialog):
             empty_layout = QVBoxLayout(empty_widget)
             empty_layout.setAlignment(Qt.AlignCenter)
             
-            emoji_label = QLabel("✨")
-            emoji_label.setFont(QFont("Inter", 48))
+            emoji_label = QLabel("🗑️")
+            emoji_label.setFont(QFont("Inter", 64))
             emoji_label.setAlignment(Qt.AlignCenter)
             emoji_label.setStyleSheet("color: #4A4D56; background: transparent;")
             empty_layout.addWidget(emoji_label)
             
             text_label = QLabel("Trash is empty")
-            text_label.setFont(QFont("Inter", 18, QFont.Medium))
+            text_label.setFont(QFont("Inter", 20, QFont.Medium))
             text_label.setAlignment(Qt.AlignCenter)
             text_label.setStyleSheet("color: #9AA0A6; background: transparent; margin-top: 16px;")
             empty_layout.addWidget(text_label)
             
-            subtext = QLabel("Deleted habits will appear here")
-            subtext.setFont(QFont("Inter", 13))
-            subtext.setAlignment(Qt.AlignCenter)
-            subtext.setStyleSheet("color: #6B6E76; background: transparent; margin-top: 8px;")
-            empty_layout.addWidget(subtext)
-            
-            self.content_layout.insertWidget(0, empty_widget)
-            self.empty_btn.setEnabled(False)
+            self.items_layout.insertWidget(0, empty_widget)
         else:
             # Add deleted habit items
             for deleted_habit in deleted_habits:
                 item = DeletedHabitItem(deleted_habit, self)
-                self.content_layout.insertWidget(self.content_layout.count() - 1, item)
-            
-            self.empty_btn.setEnabled(True)
+                self.items_layout.insertWidget(self.items_layout.count() - 1, item)
     
     def empty_trash(self):
-        """Permanently delete all items in trash"""
-        deleted_count = len(self.habit_service.get_deleted_habits())
-        
-        if deleted_count == 0:
-            return
-        
+        """Empty all trash"""
         msg = QMessageBox(self)
-        msg.setIcon(QMessageBox.Warning)
         msg.setWindowTitle("Empty Trash")
-        msg.setText(f"Permanently delete {deleted_count} habit(s)?")
-        msg.setInformativeText("This action cannot be undone. All habits in trash will be removed forever.")
+        msg.setText("Permanently delete all habits in trash?")
+        msg.setInformativeText("This action cannot be undone!")
         msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         msg.setDefaultButton(QMessageBox.No)
         msg.setStyleSheet("""
-            QMessageBox {
-                background-color: #1C1F26;
-            }
-            QMessageBox QLabel {
-                color: #E4E6EB;
-            }
+            QMessageBox { background-color: #1C1F26; }
+            QMessageBox QLabel { color: #E4E6EB; }
             QPushButton {
                 background-color: #20232B;
                 color: #E4E6EB;
@@ -417,31 +362,5 @@ class TrashDialog(QDialog):
         """)
         
         if msg.exec() == QMessageBox.Yes:
-            # Delete all from trash
-            query = "DELETE FROM deleted_habits"
-            self.habit_service.db.execute(query)
+            self.habit_service.empty_trash()
             self.load_deleted_habits()
-            
-            # Show success message
-            success_msg = QMessageBox(self)
-            success_msg.setIcon(QMessageBox.Information)
-            success_msg.setWindowTitle("Trash Emptied")
-            success_msg.setText(f"✓ {deleted_count} habit(s) permanently deleted")
-            success_msg.setStyleSheet("""
-                QMessageBox {
-                    background-color: #1C1F26;
-                }
-                QMessageBox QLabel {
-                    color: #E4E6EB;
-                }
-                QPushButton {
-                    background-color: #4FD1C5;
-                    color: #0F1115;
-                    border: none;
-                    border-radius: 6px;
-                    padding: 8px 20px;
-                    font-weight: bold;
-                    min-width: 80px;
-                }
-            """)
-            success_msg.exec()

@@ -1,65 +1,72 @@
 """
-Service layer for habit-related operations
+Habit service with categories, notes, and undo delete support
 """
 
-from datetime import datetime
-from app.db.database import get_db_connection
+from typing import List, Optional
+from app.db.database import get_db
 from app.models.habit import Habit
+from app.utils.dates import get_today
+from app.utils.constants import FREQUENCY_DAILY
 
 
 class HabitService:
-    """Service for habit CRUD operations"""
+    """Service for managing habits"""
     
     def __init__(self):
-        pass
+        self.db = get_db()
     
-    def create_habit(self, name, description="", frequency="daily", category="General"):
+    def create_habit(self, name: str, description: str = "", category: str = "General", 
+                    frequency: str = FREQUENCY_DAILY) -> Habit:
         """Create a new habit"""
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        query = """
+            INSERT INTO habits (name, description, category, frequency, created_at, is_active)
+            VALUES (?, ?, ?, ?, ?, 1)
+        """
+        habit_id = self.db.insert(query, (name, description, category, frequency, get_today()))
         
-        cursor.execute('''
-            INSERT INTO habits (name, description, frequency, category)
-            VALUES (?, ?, ?, ?)
-        ''', (name, description, frequency, category))
-        
-        habit_id = cursor.lastrowid
-        conn.commit()
-        conn.close()
-        
-        return habit_id
+        return Habit(
+            id=habit_id,
+            name=name,
+            description=description,
+            category=category,
+            frequency=frequency,
+            created_at=get_today(),
+            is_active=True
+        )
     
-    def get_all_habits(self, category=None):
+    def get_all_habits(self, active_only: bool = True, category: str = None) -> List[Habit]:
         """Get all habits, optionally filtered by category"""
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
         if category:
-            cursor.execute('SELECT * FROM habits WHERE category = ? ORDER BY created_at DESC', (category,))
+            if active_only:
+                query = "SELECT * FROM habits WHERE is_active = 1 AND category = ? ORDER BY created_at DESC"
+                rows = self.db.fetchall(query, (category,))
+            else:
+                query = "SELECT * FROM habits WHERE category = ? ORDER BY created_at DESC"
+                rows = self.db.fetchall(query, (category,))
         else:
-            cursor.execute('SELECT * FROM habits ORDER BY created_at DESC')
-        
-        rows = cursor.fetchall()
-        conn.close()
+            if active_only:
+                query = "SELECT * FROM habits WHERE is_active = 1 ORDER BY created_at DESC"
+            else:
+                query = "SELECT * FROM habits ORDER BY created_at DESC"
+            rows = self.db.fetchall(query)
         
         return [Habit.from_db_row(row) for row in rows]
     
-    def get_habit_by_id(self, habit_id):
+    def get_habit_by_id(self, habit_id: int) -> Optional[Habit]:
         """Get a specific habit by ID"""
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        query = "SELECT * FROM habits WHERE id = ?"
+        row = self.db.fetchone(query, (habit_id,))
         
-        cursor.execute('SELECT * FROM habits WHERE id = ?', (habit_id,))
-        row = cursor.fetchone()
-        
-        conn.close()
-        
-        return Habit.from_db_row(row) if row else None
+        if row:
+            return Habit.from_db_row(row)
+        return None
     
-    def update_habit(self, habit_id, name=None, description=None, frequency=None, category=None):
-        """Update a habit"""
-        conn = get_db_connection()
-        cursor = conn.cursor()
+    def update_habit(self, habit_id: int, name: str = None, description: str = None, 
+                    category: str = None, frequency: str = None) -> bool:
+        """Update habit details"""
+        habit = self.get_habit_by_id(habit_id)
+        if not habit:
+            return False
         
         updates = []
         params = []
@@ -70,211 +77,166 @@ class HabitService:
         if description is not None:
             updates.append("description = ?")
             params.append(description)
-        if frequency is not None:
-            updates.append("frequency = ?")
-            params.append(frequency)
         if category is not None:
             updates.append("category = ?")
             params.append(category)
+        if frequency is not None:
+            updates.append("frequency = ?")
+            params.append(frequency)
         
-        if updates:
-            params.append(habit_id)
-            query = f"UPDATE habits SET {', '.join(updates)} WHERE id = ?"
-            cursor.execute(query, params)
-            conn.commit()
+        if not updates:
+            return True
         
-        conn.close()
+        params.append(habit_id)
+        query = f"UPDATE habits SET {', '.join(updates)} WHERE id = ?"
+        
+        self.db.execute(query, tuple(params))
+        return True
     
-    def hard_delete_habit(self, habit_id, save_to_trash=True):
-        """Delete a habit (optionally save to trash first)"""
+    def delete_habit(self, habit_id: int) -> bool:
+        """Soft delete a habit (mark as inactive)"""
+        query = "UPDATE habits SET is_active = 0 WHERE id = ?"
+        self.db.execute(query, (habit_id,))
+        return True
+    
+    def hard_delete_habit(self, habit_id: int, save_to_trash: bool = True) -> bool:
+        """Permanently delete a habit, optionally saving to trash for undo"""
         if save_to_trash:
-            # Get habit details
+            # Save to deleted_habits table
             habit = self.get_habit_by_id(habit_id)
             if habit:
-                # Count completions
-                completions = self.get_habit_completions(habit_id)
-                completion_count = len(completions)
+                completion_count = len(self.get_habit_completions(habit_id))
                 
-                # Save to deleted_habits
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                
-                cursor.execute('''
+                trash_query = """
                     INSERT INTO deleted_habits 
-                    (original_habit_id, name, description, category, frequency, created_at, completion_count)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                ''', (habit.id, habit.name, habit.description, habit.category, 
-                      habit.frequency, habit.created_at, completion_count))
-                
-                conn.commit()
-                conn.close()
+                    (original_habit_id, name, description, category, frequency, created_at, deleted_at, completion_count)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """
+                self.db.execute(trash_query, (
+                    habit_id, habit.name, habit.description, habit.category,
+                    habit.frequency, habit.created_at, get_today(), completion_count
+                ))
         
-        # Delete the habit
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('DELETE FROM habits WHERE id = ?', (habit_id,))
-        
-        conn.commit()
-        conn.close()
+        # Delete the habit (cascades to logs)
+        query = "DELETE FROM habits WHERE id = ?"
+        self.db.execute(query, (habit_id,))
+        return True
     
-    def mark_habit_complete(self, habit_id, date=None, notes=""):
-        """Mark a habit as complete for a specific date"""
-        if date is None:
-            date = datetime.now().strftime("%Y-%m-%d")
-        
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        try:
-            cursor.execute('''
-                INSERT INTO habit_logs (habit_id, completed_date, notes)
-                VALUES (?, ?, ?)
-            ''', (habit_id, date, notes))
-            
-            conn.commit()
-            conn.close()
-            return True
-        except Exception as e:
-            conn.close()
-            return False
-    
-    def unmark_habit_complete(self, habit_id, date=None):
-        """Remove completion for a specific date"""
-        if date is None:
-            date = datetime.now().strftime("%Y-%m-%d")
-        
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            DELETE FROM habit_logs 
-            WHERE habit_id = ? AND completed_date = ?
-        ''', (habit_id, date))
-        
-        conn.commit()
-        conn.close()
-    
-    def is_habit_completed_today(self, habit_id):
-        """Check if habit is completed today"""
-        today = datetime.now().strftime("%Y-%m-%d")
-        return self.is_habit_completed_on_date(habit_id, today)
-    
-    def is_habit_completed_on_date(self, habit_id, date_str):
-        """Check if habit was completed on specific date"""
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT COUNT(*) FROM habit_logs 
-            WHERE habit_id = ? AND completed_date = ?
-        ''', (habit_id, date_str))
-        
-        count = cursor.fetchone()[0]
-        conn.close()
-        
-        return count > 0
-    
-    def get_habit_completions(self, habit_id):
-        """Get all completion dates for a habit"""
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT completed_date FROM habit_logs 
-            WHERE habit_id = ? 
-            ORDER BY completed_date DESC
-        ''', (habit_id,))
-        
-        rows = cursor.fetchall()
-        conn.close()
-        
-        return [row['completed_date'] for row in rows]
-    
-    def get_completion_notes(self, habit_id, date=None):
-        """Get notes for a specific completion"""
-        if date is None:
-            date = datetime.now().strftime("%Y-%m-%d")
-        
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-            SELECT notes FROM habit_logs 
-            WHERE habit_id = ? AND completed_date = ?
-        ''', (habit_id, date))
-        
-        row = cursor.fetchone()
-        conn.close()
-        
-        return row['notes'] if row and row['notes'] else ""
-    
-    def get_deleted_habits(self, limit=10):
-        """Get deleted habits from trash"""
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
+    def get_deleted_habits(self, limit: int = 10) -> List[dict]:
+        """Get recently deleted habits"""
+        query = """
             SELECT * FROM deleted_habits 
             ORDER BY deleted_at DESC 
             LIMIT ?
-        ''', (limit,))
-        
-        rows = cursor.fetchall()
-        conn.close()
-        
-        return rows
+        """
+        rows = self.db.fetchall(query, (limit,))
+        return [dict(row) for row in rows]
     
-    def restore_habit(self, deleted_habit_id):
-        """Restore a habit from trash"""
-        conn = get_db_connection()
-        cursor = conn.cursor()
+    def restore_habit(self, deleted_habit_id: int) -> Optional[Habit]:
+        """Restore a deleted habit"""
+        # Get deleted habit info
+        query = "SELECT * FROM deleted_habits WHERE id = ?"
+        row = self.db.fetchone(query, (deleted_habit_id,))
         
-        # Get deleted habit
-        cursor.execute('SELECT * FROM deleted_habits WHERE id = ?', (deleted_habit_id,))
-        deleted = cursor.fetchone()
+        if not row:
+            return None
         
-        if deleted:
-            # Recreate habit
-            cursor.execute('''
-                INSERT INTO habits (name, description, category, frequency, created_at)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (deleted['name'], deleted['description'], deleted['category'],
-                  deleted['frequency'], deleted['created_at']))
-            
-            # Remove from trash
-            cursor.execute('DELETE FROM deleted_habits WHERE id = ?', (deleted_habit_id,))
-            
-            conn.commit()
+        # Recreate the habit
+        habit = self.create_habit(
+            name=row['name'],
+            description=row['description'] or "",
+            category=row['category'] or "General",
+            frequency=row['frequency']
+        )
         
-        conn.close()
+        # Remove from trash
+        delete_query = "DELETE FROM deleted_habits WHERE id = ?"
+        self.db.execute(delete_query, (deleted_habit_id,))
+        
+        return habit
     
-    def empty_trash(self):
-        """Permanently delete all habits in trash"""
-        conn = get_db_connection()
-        cursor = conn.cursor()
+    def mark_habit_complete(self, habit_id: int, date: str = None, notes: str = "") -> bool:
+        """Mark a habit as complete for a specific date with optional notes"""
+        if date is None:
+            date = get_today()
         
-        cursor.execute('DELETE FROM deleted_habits')
+        # Check if already completed
+        check_query = "SELECT id FROM habit_logs WHERE habit_id = ? AND completed_date = ?"
+        existing = self.db.fetchone(check_query, (habit_id, date))
         
-        conn.commit()
-        conn.close()
+        if existing:
+            # Update notes if provided
+            if notes:
+                update_query = "UPDATE habit_logs SET notes = ? WHERE habit_id = ? AND completed_date = ?"
+                self.db.execute(update_query, (notes, habit_id, date))
+            return False
+        
+        # Insert completion log
+        query = """
+            INSERT INTO habit_logs (habit_id, completed_date, notes, created_at)
+            VALUES (?, ?, ?, ?)
+        """
+        self.db.execute(query, (habit_id, date, notes, get_today()))
+        return True
     
-    def get_categories_with_counts(self):
+    def unmark_habit_complete(self, habit_id: int, date: str = None) -> bool:
+        """Remove completion for a specific date"""
+        if date is None:
+            date = get_today()
+        
+        query = "DELETE FROM habit_logs WHERE habit_id = ? AND completed_date = ?"
+        self.db.execute(query, (habit_id, date))
+        return True
+    
+    def get_completion_notes(self, habit_id: int, date: str = None) -> Optional[str]:
+        """Get notes for a specific completion"""
+        if date is None:
+            date = get_today()
+        
+        query = "SELECT notes FROM habit_logs WHERE habit_id = ? AND completed_date = ?"
+        row = self.db.fetchone(query, (habit_id, date))
+        
+        if row and row['notes']:
+            return row['notes']
+        return None
+    
+    def is_habit_completed_today(self, habit_id: int) -> bool:
+        """Check if habit is completed for today"""
+        query = "SELECT id FROM habit_logs WHERE habit_id = ? AND completed_date = ?"
+        result = self.db.fetchone(query, (habit_id, get_today()))
+        return result is not None
+    
+    def get_habit_completions(self, habit_id: int, limit: int = None) -> List[str]:
+        """Get list of completion dates for a habit"""
+        if limit:
+            query = """
+                SELECT completed_date FROM habit_logs 
+                WHERE habit_id = ? 
+                ORDER BY completed_date DESC 
+                LIMIT ?
+            """
+            rows = self.db.fetchall(query, (habit_id, limit))
+        else:
+            query = """
+                SELECT completed_date FROM habit_logs 
+                WHERE habit_id = ? 
+                ORDER BY completed_date DESC
+            """
+            rows = self.db.fetchall(query, (habit_id,))
+        
+        return [row['completed_date'] for row in rows]
+    
+    def get_categories_with_counts(self) -> List[tuple]:
         """Get all categories with habit counts"""
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute('''
+        query = """
             SELECT category, COUNT(*) as count 
             FROM habits 
+            WHERE is_active = 1 
             GROUP BY category 
             ORDER BY count DESC
-        ''')
-        
-        rows = cursor.fetchall()
-        conn.close()
-        
-        return {row['category']: row['count'] for row in rows}
+        """
+        rows = self.db.fetchall(query)
+        return [(row['category'], row['count']) for row in rows]
 
 
 # Global service instance

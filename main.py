@@ -1,61 +1,49 @@
 """
-Habit Tracker - Main Entry Point
-A simple desktop application for tracking daily habits.
+Habit Tracker Application
+Main entry point
 """
 
 import sys
 import os
 from PySide6.QtWidgets import QApplication
-from PySide6.QtGui import QIcon
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont
+
+# Add the project root to the path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from app.db.database import init_db
 from app.ui.main_window import MainWindow
-
-
-def load_stylesheet(app):
-    """Load application stylesheet"""
-    from app.services.settings_service import get_settings_service
-    from app.utils.themes import DARK_THEME, LIGHT_THEME
-    
-    settings = get_settings_service()
-    theme = settings.get_theme()
-    
-    if theme == 'light':
-        app.setStyleSheet(LIGHT_THEME)
-    else:
-        app.setStyleSheet(DARK_THEME)
 
 
 def main():
     """Main application entry point"""
+    # Initialize database
+    init_db()
+    
+    # Create application
     app = QApplication(sys.argv)
-    
-    # Set application metadata
     app.setApplicationName("Habit Tracker")
-    app.setOrganizationName("YourName")
-    app.setApplicationVersion("1.0.0")
     
-    # Load stylesheet
-    load_stylesheet(app)
+    # Set default font
+    app.setFont(QFont("SF Pro Display", 11))
     
-    # Set application icon (if exists)
-    icon_path = os.path.join("app", "assets", "icons", "app_icon.png")
-    if os.path.exists(icon_path):
-        app.setWindowIcon(QIcon(icon_path))
+    # Simple light theme for HabitHub UI
+    app.setStyleSheet("""
+        QWidget {
+            background-color: #F8F9FA;
+            color: #212529;
+        }
+    """)
     
     # Create and show main window
     window = MainWindow()
-    window.show()
     
-    # Start scheduler for daily reminders
-    from app.services.scheduler_service import get_scheduler_service
-    scheduler = get_scheduler_service()
+    # FULL SCREEN MODE
+    window.showMaximized()
     
     # Start event loop
-    exit_code = app.exec()
-    
-    # Cleanup
-    scheduler.stop()
-    
-    sys.exit(exit_code)
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":

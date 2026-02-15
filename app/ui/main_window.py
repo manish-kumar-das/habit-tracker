@@ -33,8 +33,8 @@ class MainWindow(QMainWindow):
         self.update_status_bar()
         
         # Start scheduler
-        from app.services.scheduler_service import get_scheduler_service
-        self.scheduler = get_scheduler_service()
+        # from app.services.scheduler_service import get_scheduler_service
+        # self.scheduler = get_scheduler_service()
     
     def setup_ui(self):
         """Setup the main UI"""
@@ -180,8 +180,33 @@ class MainWindow(QMainWindow):
     
     def show_dashboard(self):
         """Show dashboard view"""
-        self.dashboard = ModernDashboard()
-        self.setCentralWidget(self.dashboard)
+        from app.ui.complete_habithub_ui import CompleteHabitHubUI
+        self.complete_ui = CompleteHabitHubUI(self)
+        self.setCentralWidget(self.complete_ui)
+        self.update_status_bar()
+
+    def show_today_view(self):
+        """Show today's habits view"""
+        from app.ui.today_view import TodayView
+    
+        # Check if today_view exists, if not create it
+        if not hasattr(self, 'today_view_widget'):
+            self.today_view_widget = TodayView()
+    
+        self.setCentralWidget(self.today_view_widget)
+        self.today_view_widget.load_habits()
+        self.update_status_bar()
+    
+    def show_habits_view(self):
+        """Show all habits view"""
+        from app.ui.habits_list_view import HabitsListView
+    
+        # Check if habits_view exists, if not create it
+        if not hasattr(self, 'habits_view_widget'):
+            self.habits_view_widget = HabitsListView()
+    
+        self.setCentralWidget(self.habits_view_widget)
+        self.habits_view_widget.load_habits()
         self.update_status_bar()
     
     def show_add_habit_dialog(self):
@@ -190,13 +215,15 @@ class MainWindow(QMainWindow):
         
         dialog = AddHabitDialog(self)
         if dialog.exec():
-            self.dashboard.load_dashboard()
+            # Reload complete UI
+            if hasattr(self, 'complete_ui'):
+                self.complete_ui.load_data()
             self.update_status_bar()
-    
+
     def show_statistics(self):
         """Show statistics view"""
-        from app.ui.statistics_view import StatisticsView
-        stats_dialog = StatisticsView(self)
+        from app.ui.stats_view import StatsView
+        stats_dialog = StatsView(self)
         stats_dialog.show()
     
     def show_analytics(self):
@@ -228,7 +255,9 @@ class MainWindow(QMainWindow):
         from app.ui.trash_dialog import TrashDialog
         trash_dialog = TrashDialog(self)
         if trash_dialog.exec():
-            self.dashboard.load_dashboard()
+            if hasattr(self, 'complete_ui'):
+                self.complete_ui.load_data()
+
     
     def show_settings(self):
         """Show settings dialog"""
@@ -407,4 +436,5 @@ class MainWindow(QMainWindow):
             self.setStyleSheet(f"QMainWindow {{ background-color: {colors['bg_primary']}; }}")
         
         # Reload dashboard
-        self.dashboard.load_dashboard()
+        if hasattr(self, 'complete_ui'):
+            self.complete_ui.load_data()

@@ -25,6 +25,7 @@ class Sidebar(QFrame):
         super().__init__(parent)
         self.main_window = parent
         self.setup_ui()
+        self.load_profile_name()
 
     def setup_ui(self):
         """Setup sidebar UI"""
@@ -149,17 +150,24 @@ class Sidebar(QFrame):
 
         layout.addSpacing(12)
 
-        # Profile Section
-        profile_container = QFrame()
+        # Profile Section (Clickable)
+        profile_container = QPushButton()
+        profile_container.setCursor(Qt.PointingHandCursor)
         profile_container.setStyleSheet("""
-            QFrame {
+            QPushButton {
                 background-color: #FFFFFF;
                 border: 1px solid #E9ECEF;
                 border-radius: 12px;
                 padding: 4px;
+                text-align: left;
+            }
+            QPushButton:hover {
+                background-color: #F8F9FA;
+                border: 1px solid #6366F1;
             }
         """)
         profile_container.setFixedHeight(64)
+        profile_container.clicked.connect(self.on_profile_clicked)
 
         profile_layout = QHBoxLayout(profile_container)
         profile_layout.setContentsMargins(12, 8, 12, 8)
@@ -190,10 +198,11 @@ class Sidebar(QFrame):
         user_info_layout = QVBoxLayout()
         user_info_layout.setSpacing(2)
 
-        user_name = QLabel("Alex Morgan")
-        user_name.setFont(QFont("SF Pro Text", 13, QFont.Bold))
-        user_name.setStyleSheet("color: #212529; background: transparent;")
-        user_info_layout.addWidget(user_name)
+        self.profile_name_label = QLabel("Alex Morgan")
+        self.profile_name_label.setFont(QFont("SF Pro Text", 13, QFont.Bold))
+        self.profile_name_label.setStyleSheet("color: #212529; background: transparent;")
+        user_info_layout.addWidget(self.profile_name_label)
+
 
         user_type = QLabel("Premium Member")
         user_type.setFont(QFont("SF Pro Text", 11))
@@ -264,6 +273,44 @@ class Sidebar(QFrame):
                 btn.setStyleSheet(active_style)
             else:
                 btn.setStyleSheet(inactive_style)
+
+    def show_profile(self):
+        """Show profile in content area"""
+        self.clear_content_area()
+    
+        from app.ui.profile_content_view import ProfileContentView
+        profile_view = ProfileContentView(self)
+        self.content_layout.addWidget(profile_view)
+    
+        # Don't highlight any sidebar button for profile
+        if hasattr(self, 'sidebar'):
+            # Keep current active button as is
+            pass
+    
+        self.update_status_bar()
+
+    def on_profile_clicked(self):
+        """Handle profile click"""
+        if self.main_window:
+            self.main_window.show_profile()
+
+    def update_profile_name(self, name):
+        """Update profile name in sidebar"""
+        # Find the user name label and update it
+        if hasattr(self, 'profile_name_label'):
+            self.profile_name_label.setText(name)
+
+
+    def load_profile_name(self):
+        """Load and display profile name from database"""
+        try:
+            from app.services.profile_service import get_profile_service
+            profile_service = get_profile_service()
+            profile = profile_service.get_profile()
+            self.profile_name_label.setText(profile['name'])
+        except:
+            # Keep default if error
+            pass
 
 
 class TopNavbar(QFrame):

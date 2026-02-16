@@ -321,12 +321,6 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'complete_ui'):
                 self.complete_ui.load_data()
 
-    # def show_settings(self):
-        """Show settings dialog"""
-        from app.ui.settings_dialog import SettingsDialog
-        settings_dialog = SettingsDialog(self)
-        settings_dialog.exec()
-
     def show_settings(self):
         """Show settings in content area"""
         self.clear_content_area()
@@ -338,6 +332,21 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'sidebar'):
             self.sidebar.update_active_button('settings')
     
+        self.update_status_bar()
+
+    def show_profile(self):
+        """Show profile in content area"""
+        self.clear_content_area()
+        
+        from app.ui.profile_content_view import ProfileContentView
+        profile_view = ProfileContentView(self)
+        self.content_layout.addWidget(profile_view)
+    
+        # Don't highlight any sidebar button for profile
+        if hasattr(self, 'sidebar'):
+            # Keep current active button as is
+            pass
+        
         self.update_status_bar()
 
     def export_data(self):
@@ -513,3 +522,5 @@ class MainWindow(QMainWindow):
         # Reload dashboard
         if hasattr(self, 'complete_ui'):
             self.complete_ui.load_data()
+    
+

@@ -129,6 +129,29 @@ def create_achievements_table(cursor):
     ''')
 
 
+def create_profile_table(cursor):
+    """Create user profile table"""
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_profile (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            name TEXT DEFAULT 'Alex Morgan',
+            email TEXT DEFAULT 'alex.morgan@example.com',
+            bio TEXT DEFAULT 'Building better habits, one day at a time! 🚀',
+            avatar_path TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # Insert default profile if not exists
+    cursor.execute('SELECT COUNT(*) FROM user_profile')
+    if cursor.fetchone()[0] == 0:
+        cursor.execute('''
+            INSERT INTO user_profile (id, name, email, bio)
+            VALUES (1, 'Alex Morgan', 'alex.morgan@example.com', 
+                    'Building better habits, one day at a time! 🚀')
+        ''')
+
 def create_tables(cursor):
     """Create all database tables"""
     create_habits_table(cursor)
@@ -137,3 +160,4 @@ def create_tables(cursor):
     create_settings_table(cursor)
     create_goals_table(cursor)
     create_achievements_table(cursor)
+    create_profile_table(cursor)

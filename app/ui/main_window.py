@@ -32,19 +32,35 @@ class MainWindow(QMainWindow):
         self.setup_menu()
         self.update_status_bar()
         
-        # Start scheduler
-        # from app.services.scheduler_service import get_scheduler_service
-        # self.scheduler = get_scheduler_service()
-    
     def setup_ui(self):
-        """Setup the main UI"""
-        # Set window background
+        """Setup the main UI with constant sidebar"""
         self.setStyleSheet("QMainWindow { background-color: #F9FAFB; }")
-        
-        # Central widget - DASHBOARD
-        self.complete_ui = CompleteHabitHubUI(self)
-        self.setCentralWidget(self.complete_ui)
-        # self.setCentralWidget(self.dashboard)
+    
+        # Main container widget
+        main_container = QWidget()
+        main_layout = QHBoxLayout(main_container)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+    
+        # Create sidebar (will be constant)
+        from app.ui.complete_habithub_ui import Sidebar
+        self.sidebar = Sidebar(self)
+        main_layout.addWidget(self.sidebar)
+    
+        # Content area container (this will change)
+        self.content_container = QWidget()
+        self.content_container.setStyleSheet("background-color: #F8F9FA;")
+        self.content_layout = QVBoxLayout(self.content_container)
+        self.content_layout.setContentsMargins(0, 0, 0, 0)
+        self.content_layout.setSpacing(0)
+    
+        main_layout.addWidget(self.content_container, stretch=1)
+    
+        # Set as central widget
+        self.setCentralWidget(main_container)
+    
+        # Load dashboard initially
+        self.show_dashboard()
         
         # Status bar
         self.statusBar().setStyleSheet("""
@@ -177,38 +193,58 @@ class MainWindow(QMainWindow):
         about_action = QAction("&About", self)
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
-    
+     
     def show_dashboard(self):
         """Show dashboard view"""
-        from app.ui.complete_habithub_ui import CompleteHabitHubUI
-        self.complete_ui = CompleteHabitHubUI(self)
-        self.setCentralWidget(self.complete_ui)
+        # Clear content area
+        self.clear_content_area()
+    
+        # Create and add dashboard
+        from app.ui.complete_habithub_ui import DashboardContent
+        dashboard = DashboardContent(self)
+        self.content_layout.addWidget(dashboard)
+    
+        # Update sidebar active state
+        if hasattr(self, 'sidebar'):
+            self.sidebar.update_active_button('dashboard')
+    
         self.update_status_bar()
 
     def show_today_view(self):
         """Show today's habits view"""
+        self.clear_content_area()
+    
         from app.ui.today_view import TodayView
+        today_view = TodayView()
+        self.content_layout.addWidget(today_view)
+        today_view.load_habits()
     
-        # Check if today_view exists, if not create it
-        if not hasattr(self, 'today_view_widget'):
-            self.today_view_widget = TodayView()
+        if hasattr(self, 'sidebar'):
+            self.sidebar.update_active_button('today')
     
-        self.setCentralWidget(self.today_view_widget)
-        self.today_view_widget.load_habits()
         self.update_status_bar()
-    
+
     def show_habits_view(self):
         """Show all habits view"""
+        self.clear_content_area()
+    
         from app.ui.habits_list_view import HabitsListView
+        habits_view = HabitsListView()
+        self.content_layout.addWidget(habits_view)
+        habits_view.load_habits()
     
-        # Check if habits_view exists, if not create it
-        if not hasattr(self, 'habits_view_widget'):
-            self.habits_view_widget = HabitsListView()
+        if hasattr(self, 'sidebar'):
+            self.sidebar.update_active_button('habits')
     
-        self.setCentralWidget(self.habits_view_widget)
-        self.habits_view_widget.load_habits()
         self.update_status_bar()
-    
+
+    def clear_content_area(self):
+        """Clear all widgets from content area"""
+        while self.content_layout.count():
+            item = self.content_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
     def show_add_habit_dialog(self):
         """Show add habit dialog"""
         from app.ui.add_habit_dialog import AddHabitDialog
@@ -225,31 +261,31 @@ class MainWindow(QMainWindow):
         from app.ui.stats_view import StatsView
         stats_dialog = StatsView(self)
         stats_dialog.show()
-    
+
     def show_analytics(self):
         """Show analytics dashboard"""
         from app.ui.analytics_view import AnalyticsView
         analytics_dialog = AnalyticsView(self)
         analytics_dialog.show()
-    
+
     def show_calendar(self):
         """Show calendar view"""
         from app.ui.calendar_view import CalendarView
         calendar_dialog = CalendarView(self)
         calendar_dialog.show()
-    
+
     def show_goals(self):
         """Show goals & milestones"""
         from app.ui.goals_view import GoalsView
         goals_dialog = GoalsView(self)
         goals_dialog.show()
-    
+
     def show_achievements(self):
         """Show achievements & badges"""
         from app.ui.achievements_view import AchievementsView
         achievements_dialog = AchievementsView(self)
         achievements_dialog.show()
-    
+
     def show_trash(self):
         """Show trash dialog"""
         from app.ui.trash_dialog import TrashDialog
@@ -258,13 +294,12 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'complete_ui'):
                 self.complete_ui.load_data()
 
-    
     def show_settings(self):
         """Show settings dialog"""
         from app.ui.settings_dialog import SettingsDialog
         settings_dialog = SettingsDialog(self)
         settings_dialog.exec()
-    
+
     def export_data(self):
         """Export habit data"""
         file_path, _ = QFileDialog.getSaveFileName(

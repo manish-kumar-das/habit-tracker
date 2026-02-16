@@ -210,14 +210,27 @@ class MainWindow(QMainWindow):
     
         self.update_status_bar()
 
+    # def show_today_view(self):
+    #     """Show today's habits view"""
+    #     self.clear_content_area()
+    
+    #     from app.ui.today_view import TodayView
+    #     today_view = TodayView()
+    #     self.content_layout.addWidget(today_view)
+    #     today_view.load_habits()
+    
+    #     if hasattr(self, 'sidebar'):
+    #         self.sidebar.update_active_button('today')
+    
+    #     self.update_status_bar()
+
     def show_today_view(self):
         """Show today's habits view"""
         self.clear_content_area()
     
-        from app.ui.today_view import TodayView
-        today_view = TodayView()
+        from app.ui.today_content_view import TodayContentView
+        today_view = TodayContentView(self)
         self.content_layout.addWidget(today_view)
-        today_view.load_habits()
     
         if hasattr(self, 'sidebar'):
             self.sidebar.update_active_button('today')
@@ -263,10 +276,17 @@ class MainWindow(QMainWindow):
         stats_dialog.show()
 
     def show_analytics(self):
-        """Show analytics dashboard"""
-        from app.ui.analytics_view import AnalyticsView
-        analytics_dialog = AnalyticsView(self)
-        analytics_dialog.show()
+        """Show analytics in content area"""
+        self.clear_content_area()
+    
+        from app.ui.analytics_content_view import AnalyticsContentView
+        analytics_view = AnalyticsContentView(self)
+        self.content_layout.addWidget(analytics_view)
+    
+        if hasattr(self, 'sidebar'):
+            self.sidebar.update_active_button('analytics')
+    
+        self.update_status_bar()
 
     def show_calendar(self):
         """Show calendar view"""
@@ -275,10 +295,17 @@ class MainWindow(QMainWindow):
         calendar_dialog.show()
 
     def show_goals(self):
-        """Show goals & milestones"""
-        from app.ui.goals_view import GoalsView
-        goals_dialog = GoalsView(self)
-        goals_dialog.show()
+        """Show goals in content area"""
+        self.clear_content_area()
+    
+        from app.ui.goals_content_view import GoalsContentView
+        goals_view = GoalsContentView(self)
+        self.content_layout.addWidget(goals_view)
+    
+        if hasattr(self, 'sidebar'):
+            self.sidebar.update_active_button('goals')
+    
+        self.update_status_bar()
 
     def show_achievements(self):
         """Show achievements & badges"""
@@ -294,11 +321,24 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'complete_ui'):
                 self.complete_ui.load_data()
 
-    def show_settings(self):
+    # def show_settings(self):
         """Show settings dialog"""
         from app.ui.settings_dialog import SettingsDialog
         settings_dialog = SettingsDialog(self)
         settings_dialog.exec()
+
+    def show_settings(self):
+        """Show settings in content area"""
+        self.clear_content_area()
+    
+        from app.ui.settings_content_view import SettingsContentView
+        settings_view = SettingsContentView(self)
+        self.content_layout.addWidget(settings_view)
+    
+        if hasattr(self, 'sidebar'):
+            self.sidebar.update_active_button('settings')
+    
+        self.update_status_bar()
 
     def export_data(self):
         """Export habit data"""

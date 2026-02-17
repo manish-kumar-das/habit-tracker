@@ -79,14 +79,6 @@ class Sidebar(QFrame):
         layout.addWidget(logo_container)
         layout.addSpacing(32)
 
-        # Navigation Section
-        nav_label = QLabel("MENU")
-        nav_label.setFont(QFont("SF Pro Text", 10, QFont.Bold))
-        nav_label.setStyleSheet("color: #868E96; background: transparent; padding-left: 16px;")
-        layout.addWidget(nav_label)
-
-        layout.addSpacing(8)
-
         # Navigation buttons
         self.nav_buttons = {}
         nav_items = [
@@ -299,7 +291,6 @@ class Sidebar(QFrame):
         # Find the user name label and update it
         if hasattr(self, 'profile_name_label'):
             self.profile_name_label.setText(name)
-
 
     def load_profile_name(self):
         """Load and display profile name from database"""
@@ -644,40 +635,60 @@ class CompleteHabitHubUI(QWidget):
 
         # Today's habits
         today_card = QFrame()
-        today_card.setStyleSheet(
-            "QFrame { background-color: #FFFFFF; border-radius: 20px; }"
-        )
+        today_card.setStyleSheet("QFrame { background-color: #FFFFFF; border-radius: 20px; }")
 
         today_layout = QVBoxLayout(today_card)
         today_layout.setContentsMargins(28, 28, 28, 28)
         today_layout.setSpacing(16)
 
-        today_header = QHBoxLayout()
-
+        # Header (no view all button)
         today_title = QLabel("Today's Habits")
         today_title.setFont(QFont("SF Pro Display", 20, QFont.Bold))
         today_title.setStyleSheet("color: #212529;")
-        today_header.addWidget(today_title)
+        today_layout.addWidget(today_title)
 
-        today_header.addStretch()
+        # Scrollable habits area
+        habits_scroll = QScrollArea()
+        habits_scroll.setWidgetResizable(True)
+        habits_scroll.setFrameShape(QFrame.NoFrame)
+        habits_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        habits_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        habits_scroll.setMinimumHeight(300)
+        habits_scroll.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: transparent;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: #F3F4F6;
+                width: 8px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical {
+                background: #6366F1;
+                min-height: 30px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #5558E3;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                border: none;
+                background: none;
+            }
+        """)
 
-        view_all = QPushButton("View All")
-        view_all.setFont(QFont("SF Pro Text", 14))
-        view_all.setCursor(Qt.PointingHandCursor)
-        view_all.setStyleSheet(
-            "QPushButton { background: transparent; border: none; color: #4C6EF5; }"
-        )
-        today_header.addWidget(view_all)
+        habits_container = QWidget()
+        habits_container.setStyleSheet("background-color: transparent;")
+        self.habits_list = QVBoxLayout(habits_container)
+        self.habits_list.setSpacing(8)
+        self.habits_list.setContentsMargins(0, 0, 8, 0)
 
-        today_layout.addLayout(today_header)
-
-        self.habits_list = QVBoxLayout()
-        today_layout.addLayout(self.habits_list)
-        today_layout.addStretch()
+        habits_scroll.setWidget(habits_container)
+        today_layout.addWidget(habits_scroll, stretch=1)
 
         top_row.addWidget(today_card, stretch=1)
-
-        dashboard_layout.addLayout(top_row)
 
         # Bottom row
         bottom_row = QHBoxLayout()
@@ -770,11 +781,30 @@ class CompleteHabitHubUI(QWidget):
                 f"Almost there! {left} habit{'s' if left != 1 else ''} left."
             )
 
-        # Load habits
-        for habit in habits[:4]:
+        # Load habits grouped by status
+        pending_habits = []
+        completed_habits = []
+
+        for habit in habits:
             is_completed = self.habit_service.is_habit_completed_today(habit.id)
-            card = HabitCard(habit, is_completed, self)
+            if is_completed:
+                completed_habits.append(habit)
+            else:
+                pending_habits.append(habit)
+
+        # Show pending first
+        for habit in pending_habits:
+            card = HabitCard(habit, False, self)
             self.habits_list.addWidget(card)
+
+        # Show completed second
+        for habit in completed_habits:
+            card = HabitCard(habit, True, self)
+            self.habits_list.addWidget(card)
+
+        # Add stretch at the end
+        self.habits_list.addStretch()
+
 
         # Streak
         max_streak = 0
@@ -960,6 +990,234 @@ class DashboardContent(QWidget):
             card = HabitCard(habit, is_completed, self)
             self.habits_list.addWidget(card)
         
+        max_streak = 0
+        for habit in habits:
+            streak_info = self.streak_service.get_streak_info(habit.id)
+            max_streak = max(max_streak, streak_info['current_streak'])
+        
+        self.streak_label.setText(f"{max_streak} Day Streak!")
+# Replace the existing DashboardContent class with this complete version:
+
+class DashboardContent(QWidget):
+    """Dashboard content without sidebar - FIXED VERSION"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.main_window = parent
+        self.habit_service = get_habit_service()
+        self.streak_service = get_streak_service()
+        self.setup_ui()
+        self.load_data()
+    
+    def setup_ui(self):
+        """Setup dashboard content UI"""
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        
+        # Top navbar
+        navbar = TopNavbar(self.main_window)
+        main_layout.addWidget(navbar)
+        
+        # Dashboard scroll
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setStyleSheet("QScrollArea { border: none; background-color: transparent; }")
+        
+        dashboard = QWidget()
+        dashboard_layout = QVBoxLayout(dashboard)
+        dashboard_layout.setContentsMargins(32, 24, 32, 24)
+        dashboard_layout.setSpacing(20)
+        
+        # Top row
+        top_row = QHBoxLayout()
+        top_row.setSpacing(20)
+        
+        # Daily card
+        daily_card = QFrame()
+        daily_card.setFixedWidth(400)
+        daily_card.setStyleSheet("QFrame { background-color: #FFFFFF; border-radius: 20px; }")
+        
+        daily_layout = QVBoxLayout(daily_card)
+        daily_layout.setContentsMargins(28, 28, 28, 28)
+        daily_layout.setSpacing(20)
+        
+        daily_title = QLabel("Daily Completion")
+        daily_title.setFont(QFont("SF Pro Display", 20, QFont.Bold))
+        daily_title.setStyleSheet("color: #212529;")
+        daily_layout.addWidget(daily_title)
+        
+        self.circular_progress = CircularProgress(0)
+        daily_layout.addWidget(self.circular_progress, alignment=Qt.AlignCenter)
+        
+        self.progress_text = QLabel("Loading...")
+        self.progress_text.setFont(QFont("SF Pro Text", 14))
+        self.progress_text.setStyleSheet("color: #868E96;")
+        self.progress_text.setAlignment(Qt.AlignCenter)
+        daily_layout.addWidget(self.progress_text)
+        
+        top_row.addWidget(daily_card)
+        
+        # Today's habits - NO VIEW ALL BUTTON
+        today_card = QFrame()
+        today_card.setStyleSheet("QFrame { background-color: #FFFFFF; border-radius: 20px; }")
+        
+        today_layout = QVBoxLayout(today_card)
+        today_layout.setContentsMargins(28, 28, 28, 28)
+        today_layout.setSpacing(16)
+        
+        # Just title, no button
+        today_title = QLabel("Today's Habits")
+        today_title.setFont(QFont("SF Pro Display", 20, QFont.Bold))
+        today_title.setStyleSheet("color: #212529;")
+        today_layout.addWidget(today_title)
+        
+        # Scrollable area for ALL habits
+        habits_scroll = QScrollArea()
+        habits_scroll.setWidgetResizable(True)
+        habits_scroll.setFrameShape(QFrame.NoFrame)
+        habits_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        habits_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        habits_scroll.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: transparent;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: #F3F4F6;
+                width: 8px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical {
+                background: #6366F1;
+                min-height: 30px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #5558E3;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                border: none;
+                background: none;
+            }
+        """)
+        
+        habits_container = QWidget()
+        habits_container.setStyleSheet("background-color: transparent;")
+        self.habits_list = QVBoxLayout(habits_container)
+        self.habits_list.setSpacing(8)
+        self.habits_list.setContentsMargins(0, 0, 8, 0)
+        
+        habits_scroll.setWidget(habits_container)
+        today_layout.addWidget(habits_scroll)
+        
+        top_row.addWidget(today_card, stretch=1)
+        
+        dashboard_layout.addLayout(top_row)
+        
+        # Bottom row
+        bottom_row = QHBoxLayout()
+        bottom_row.setSpacing(20)
+        
+        # Weekly placeholder
+        weekly = QFrame()
+        weekly.setStyleSheet("QFrame { background-color: #FFFFFF; border-radius: 20px; }")
+        weekly.setMinimumHeight(280)
+        bottom_row.addWidget(weekly, stretch=2)
+        
+        # Milestone
+        milestone = QFrame()
+        milestone.setFixedWidth(400)
+        milestone.setStyleSheet("QFrame { background-color: #FFFFFF; border-radius: 20px; }")
+        
+        milestone_layout = QVBoxLayout(milestone)
+        milestone_layout.setContentsMargins(28, 28, 28, 32)
+        milestone_layout.setSpacing(20)
+        
+        milestone_title = QLabel("Monthly Milestone")
+        milestone_title.setFont(QFont("SF Pro Display", 20, QFont.Bold))
+        milestone_title.setStyleSheet("color: #212529;")
+        milestone_layout.addWidget(milestone_title)
+        
+        flame = QFrame()
+        flame.setFixedSize(120, 120)
+        flame.setStyleSheet("QFrame { background-color: #FFF4E6; border-radius: 60px; }")
+        
+        flame_layout = QVBoxLayout(flame)
+        flame_layout.setContentsMargins(0, 0, 0, 0)
+        
+        flame_icon = QLabel("🔥")
+        flame_icon.setFont(QFont("SF Pro Display", 56))
+        flame_icon.setAlignment(Qt.AlignCenter)
+        flame_layout.addWidget(flame_icon)
+        
+        milestone_layout.addWidget(flame, alignment=Qt.AlignCenter)
+        
+        self.streak_label = QLabel("0 Day Streak!")
+        self.streak_label.setFont(QFont("SF Pro Display", 32, QFont.Bold))
+        self.streak_label.setStyleSheet("color: #212529;")
+        self.streak_label.setAlignment(Qt.AlignCenter)
+        milestone_layout.addWidget(self.streak_label)
+        
+        bottom_row.addWidget(milestone)
+        
+        dashboard_layout.addLayout(bottom_row)
+        
+        scroll.setWidget(dashboard)
+        main_layout.addWidget(scroll)
+    
+    def load_data(self):
+        """Load data - SHOW ALL HABITS"""
+        while self.habits_list.count():
+            item = self.habits_list.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        habits = self.habit_service.get_all_habits()
+        
+        if not habits:
+            self.progress_text.setText("No habits yet. Create one!")
+            return
+        
+        completed = sum(1 for h in habits if self.habit_service.is_habit_completed_today(h.id))
+        total = len(habits)
+        percentage = int((completed / total) * 100) if total > 0 else 0
+        
+        self.circular_progress.set_percentage(percentage)
+        
+        left = total - completed
+        if left == 0:
+            self.progress_text.setText("Perfect! All habits completed! 🎉")
+        else:
+            self.progress_text.setText(f"Almost there! {left} habit{'s' if left != 1 else ''} left.")
+        
+        # Group habits by status
+        pending_habits = []
+        completed_habits = []
+        
+        for habit in habits:
+            is_completed = self.habit_service.is_habit_completed_today(habit.id)
+            if is_completed:
+                completed_habits.append(habit)
+            else:
+                pending_habits.append(habit)
+        
+        # Show pending first
+        for habit in pending_habits:
+            card = HabitCard(habit, False, self)
+            self.habits_list.addWidget(card)
+        
+        # Show completed
+        for habit in completed_habits:
+            card = HabitCard(habit, True, self)
+            self.habits_list.addWidget(card)
+        
+        # Stretch
+        self.habits_list.addStretch()
+        
+        # Streak
         max_streak = 0
         for habit in habits:
             streak_info = self.streak_service.get_streak_info(habit.id)

@@ -43,8 +43,8 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(0)
     
         # Create sidebar (will be constant)
-        from app.ui.complete_habithub_ui import Sidebar
-        self.sidebar = Sidebar(self)
+        from app.ui.premium_sidebar import PremiumSidebar
+        self.sidebar = PremiumSidebar(self)
         main_layout.addWidget(self.sidebar)
     
         # Content area container (this will change)

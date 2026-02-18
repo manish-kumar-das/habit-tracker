@@ -193,18 +193,15 @@ class MainWindow(QMainWindow):
         about_action = QAction("&About", self)
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
-     
+  
     def show_dashboard(self):
         """Show dashboard view"""
-        # Clear content area
         self.clear_content_area()
     
-        # Create and add dashboard
-        from app.ui.complete_habithub_ui import DashboardContent
-        dashboard = DashboardContent(self)
+        from app.ui.dashboard_view import ModernDashboard
+        dashboard = ModernDashboard(self)
         self.content_layout.addWidget(dashboard)
     
-        # Update sidebar active state
         if hasattr(self, 'sidebar'):
             self.sidebar.update_active_button('dashboard')
     

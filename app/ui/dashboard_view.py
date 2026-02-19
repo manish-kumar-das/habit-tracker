@@ -4,203 +4,313 @@ Premium Dashboard View - ALL ISSUES FIXED
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-    QPushButton, QFrame, QScrollArea
+    QPushButton, QFrame, QScrollArea, QGraphicsDropShadowEffect
 )
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont, QCursor, QPainter, QColor, QPen, QLinearGradient
+from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QRectF
+from PySide6.QtGui import QFont, QCursor, QPainter, QColor, QPen, QLinearGradient, QRadialGradient
 from datetime import datetime, timedelta
 from app.services.habit_service import get_habit_service
 from app.services.streak_service import get_streak_service
 
 
 class SimpleCircularProgress(QWidget):
-    
+
     def __init__(self, percentage=0, parent=None):
         super().__init__(parent)
         self.percentage = percentage
         self.setFixedSize(240, 240)
-    
+
     def set_percentage(self, percentage):
         self.percentage = percentage
         self.update()
-    
+
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-        
+
         center_x = self.width() // 2
         center_y = self.height() // 2
         radius = 85
-        
-        # Background circle
-        painter.setPen(QPen(QColor("#E0E7FF"), 18))
-        painter.drawArc(center_x - radius, center_y - radius, radius * 2, radius * 2, 0, 360 * 16)
-        
-        # Progress arc with gradient
+
+        rect = QRectF(
+            center_x - radius,
+            center_y - radius,
+            radius * 2,
+            radius * 2
+        )
+
+        # top inner shadow
+        top_shadow = QRadialGradient(
+            center_x,
+            center_y - 25,
+            radius + 20
+        )
+        top_shadow.setColorAt(0.7, QColor(0, 0, 0, 0))
+        top_shadow.setColorAt(1, QColor(0, 0, 0, 40))
+
+        painter.setBrush(top_shadow)
+        painter.setPen(Qt.NoPen)
+        painter.drawEllipse(rect)
+
+        # Background ring
+        bg_pen = QPen(QColor("#E0E7FF"), 18)
+        bg_pen.setCapStyle(Qt.RoundCap)
+        painter.setPen(bg_pen)
+        painter.setBrush(Qt.NoBrush)
+        painter.drawArc(rect, 0, 360 * 16)
+
+
+        # Gradient Progress Arc
         if self.percentage > 0:
-            gradient = QLinearGradient(center_x - radius, center_y, center_x + radius, center_y)
+            gradient = QLinearGradient(
+                center_x - radius,
+                center_y,
+                center_x + radius,
+                center_y
+            )
             gradient.setColorAt(0, QColor("#667eea"))
             gradient.setColorAt(0.5, QColor("#764ba2"))
             gradient.setColorAt(1, QColor("#f093fb"))
-            
-            pen = QPen(gradient, 18)
-            pen.setCapStyle(Qt.RoundCap)
-            painter.setPen(pen)
-            
+
+            progress_pen = QPen(gradient, 18)
+            progress_pen.setCapStyle(Qt.RoundCap)
+            painter.setPen(progress_pen)
+
             span_angle = int(-360 * (self.percentage / 100) * 16)
-            painter.drawArc(center_x - radius, center_y - radius, radius * 2, radius * 2, 90 * 16, span_angle)
-        
-        # Percentage text 
-        painter.setPen(QColor("#1F2937"))
-        if self.percentage == 100:
-            painter.setFont(QFont("SF Pro Display", 40, QFont.Bold))  # Smaller for 100%
-        else:
-            painter.setFont(QFont("SF Pro Display", 40, QFont.Bold))
+            painter.drawArc(rect, 90 * 16, span_angle)
+
+        # Soft inner highlight
+        highlight = QRadialGradient(
+            center_x,
+            center_y - 30,
+            radius
+        )
+        highlight.setColorAt(0, QColor(255, 255, 255, 60))
+        highlight.setColorAt(1, QColor(255, 255, 255, 0))
+
+        painter.setBrush(highlight)
+        painter.setPen(Qt.NoPen)
+        painter.drawEllipse(rect.adjusted(18, 18, -18, -18))
+
+
+        # Percentage Text
+        painter.setPen(QColor("#111827"))
+        painter.setFont(QFont("SF Pro Display", 42, QFont.Bold))
         painter.drawText(self.rect(), Qt.AlignCenter, f"{int(self.percentage)}%")
 
 
-class PremiumHabitCard(QFrame):
-    """Premium habit card - FIXED text display and button size"""
-    
-    def __init__(self, habit, is_completed, parent=None):
+class HabitCard(QFrame):
+    """
+    Clean Modern Habit Card
+    """
+
+    def __init__(self, habit, is_completed=False, parent=None):
         super().__init__(parent)
+
         self.habit = habit
         self.is_completed = is_completed
         self.parent_view = parent
         self.habit_service = get_habit_service()
+
+        self.setObjectName("habitCard")
+        self.setFixedHeight(92)
+        self.setCursor(Qt.PointingHandCursor)
+
         self.setup_ui()
-    
+        self.apply_shadow()
+
+    # UI
     def setup_ui(self):
-        self.setFixedHeight(85)
-        
-        if self.is_completed:
-            self.setStyleSheet("""
-                QFrame {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                        stop:0 #D1FAE5, stop:1 #A7F3D0);
-                    border-left: 4px solid #10B981;
-                    border-radius: 14px;
-                }
-            """)
-        else:
-            self.setStyleSheet("""
-                QFrame {
-                    background-color: #FFFFFF;
-                    border-left: 4px solid #667eea;
-                    border-radius: 14px;
-                }
-                QFrame:hover {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                        stop:0 #FFFFFF, stop:1 #F5F3FF);
-                }
-            """)
-        
+
+        self.setStyleSheet("""
+            QFrame#habitCard {
+                background-color: #FFFFFF;
+                border-radius: 18px;
+            }
+            QFrame#habitCard:hover {
+                background-color: #F8FAFF;
+            }
+        """)
+
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(22, 16, 22, 16)
-        layout.setSpacing(18)
-        
-        # Icon
-        icon_frame = QFrame()
-        icon_frame.setFixedSize(54, 54)
-        
+        layout.setContentsMargins(20, 14, 20, 14)
+        layout.setSpacing(14)
+
+        # Text Section 
+        text_layout = QVBoxLayout()
+        text_layout.setSpacing(4)
+
+        name_label = QLabel(self.habit.name)
+        name_label.setFont(QFont("SF Pro Display", 15, QFont.DemiBold))
+        name_label.setStyleSheet("color: #1F2937;")
+
+        subtitle = QLabel(f"{self.habit.category} • {self.habit.frequency}")
+        subtitle.setFont(QFont("SF Pro Text", 12))
+        subtitle.setStyleSheet("color: #9CA3AF;")
+
+        text_layout.addWidget(name_label)
+
+        layout.addLayout(text_layout)
+        layout.addStretch()
+
+        # Button 
+        self.button = QPushButton()
+        self.button.setFixedHeight(36)
+        self.button.setMinimumWidth(130)
+        self.button.setCursor(Qt.PointingHandCursor)
+        self.button.setFont(QFont("SF Pro Text", 13, QFont.DemiBold))
+
+        layout.addWidget(self.button)
+
         if self.is_completed:
-            icon_frame.setStyleSheet("""
-                QFrame {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                        stop:0 #10B981, stop:1 #059669);
-                    border-radius: 13px;
-                }
-            """)
-            icon_text = "✓"
-            icon_color = "#FFFFFF"
+            self.apply_completed_style()
         else:
-            from app.utils.constants import CATEGORIES
-            icon_text = "📌"
-            for cat_name, emoji in CATEGORIES:
-                if cat_name == self.habit.category:
-                    icon_text = emoji
-                    break
-            
-            icon_frame.setStyleSheet("""
-                QFrame {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                        stop:0 #EDE9FE, stop:1 #DDD6FE);
-                    border-radius: 13px;
-                }
-            """)
-            icon_color = "#5B21B6"
-        
-        icon_layout = QVBoxLayout(icon_frame)
-        icon_layout.setContentsMargins(0, 0, 0, 0)
-        
-        icon_label = QLabel(icon_text)
-        icon_label.setFont(QFont("SF Pro Display", 26))
-        icon_label.setStyleSheet(f"color: {icon_color}; background: transparent;")
-        icon_label.setAlignment(Qt.AlignCenter)
-        icon_layout.addWidget(icon_label)
-        
-        layout.addWidget(icon_frame)
-        
-        # Info - FIXED: Better text display
-        info = QVBoxLayout()
-        info.setSpacing(5)
-        
-        name = QLabel(self.habit.name)
-        name.setFont(QFont("SF Pro Display", 17, QFont.Bold))
-        name.setStyleSheet("color: #1F2937; background: transparent;")
-        name.setWordWrap(False)  # Don't wrap
-        info.addWidget(name)
-        
-        subtitle = f"{self.habit.category} • {self.habit.frequency}"
-        sub = QLabel(subtitle)
-        sub.setFont(QFont("SF Pro Text", 14))
-        sub.setStyleSheet("color: #6B7280; background: transparent;")
-        info.addWidget(sub)
-        
-        layout.addLayout(info, stretch=1)
-        
-        # Status/Action - FIXED: Bigger button
-        if self.is_completed:
-            status_badge = QLabel("✓ Completed")
-            status_badge.setFont(QFont("SF Pro Text", 15, QFont.Bold))
-            status_badge.setStyleSheet("""
-                QLabel {
-                    color: #059669;
-                    background-color: rgba(16, 185, 129, 0.15);
-                    padding: 10px 18px;
-                    border-radius: 11px;
-                }
-            """)
-            layout.addWidget(status_badge)
-        else:
-            btn = QPushButton("Mark Done")
-            btn.setFont(QFont("SF Pro Text", 15, QFont.Bold))
-            btn.setFixedHeight(46)  # Increased from 42
-            btn.setFixedWidth(130)  # Increased from 110
-            btn.setCursor(Qt.PointingHandCursor)
-            btn.setStyleSheet("""
-                QPushButton {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                        stop:0 #667eea, stop:1 #764ba2);
-                    color: #FFFFFF;
-                    border: none;
-                    border-radius: 11px;
-                }
-                QPushButton:hover {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                        stop:0 #5568d3, stop:1 #6a4191);
-                }
-            """)
-            btn.clicked.connect(self.mark_complete)
-            layout.addWidget(btn)
-    
+            self.apply_default_style()
+
+        self.button.clicked.connect(self.mark_complete)
+
+    # Styles
+    def apply_default_style(self):
+        self.button.setText("Mark Done")
+        self.button.setEnabled(True)
+        self.button.setStyleSheet("""
+            QPushButton {
+                background-color: #EEF2FF;
+                color: #4F46E5;
+                border-radius: 14px;
+                padding: 6px 16px;
+            }
+            QPushButton:hover {
+                background-color: #E0E7FF;
+            }
+        """)
+
+    def apply_completed_style(self):
+        self.setStyleSheet("""
+            QFrame#habitCard {
+                background-color: #F9FAFB;
+                border-radius: 18px;
+                border-left: 4px solid #10B981;
+            }
+        """)
+
+        self.button.setText("Completed ✓")
+        self.button.setEnabled(False)
+        self.button.setStyleSheet("""
+            QPushButton {
+                background-color: #D1FAE5;
+                color: #065F46;
+                border-radius: 14px;
+                padding: 6px 16px;
+            }
+        """)
+
+    # Shadow
+
+    def apply_shadow(self):
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(22)
+        shadow.setOffset(0, 6)
+        shadow.setColor(QColor(0, 0, 0, 35))
+        self.setGraphicsEffect(shadow)
+
+    # Action
     def mark_complete(self):
         try:
             self.habit_service.mark_habit_complete(self.habit.id)
-            if self.parent_view and hasattr(self.parent_view, 'load_dashboard'):
+
+            # Light animation
+            animation = QPropertyAnimation(self, b"windowOpacity")
+            animation.setDuration(180)
+            animation.setStartValue(1)
+            animation.setEndValue(0.7)
+            animation.start()
+
+            if self.parent_view and hasattr(self.parent_view, "load_dashboard"):
                 self.parent_view.load_dashboard()
+
         except Exception as e:
-            print(f"Error: {e}")
+            print("Error:", e)
+
+
+def apply_completed_style(self):
+    self.setStyleSheet("""
+        QFrame#habitCard {
+            background-color: #F9FAFB;
+            border-radius: 18px;
+            border-left: 4px solid #10B981;
+        }
+    """)
+    self.button.setText("Completed ✓")
+    self.button.setStyleSheet("""
+        QPushButton {
+            background-color: #D1FAE5;
+            color: #065F46;
+            border-radius: 16px;
+            padding: 6px 16px;
+            font-weight: 600;
+        }
+    """)
+
+    # Styles
+    def default_style(self):
+        return """
+        QFrame#habitCard {
+            background-color: white;
+            border-radius: 18px;
+        }
+        QFrame#habitCard:hover {
+            background-color: #F8FAFF;
+        }
+        """
+
+    def completed_style(self):
+        return """
+        QFrame#habitCard {
+            background-color: #F9FAFB;
+            border-radius: 18px;
+            border-left: 4px solid #10B981;
+        }
+        """
+
+    def mark_done_style(self):
+        return """
+        QPushButton {
+            background-color: #EEF2FF;
+            color: #4F46E5;
+            border-radius: 16px;
+            padding: 6px 16px;
+            font-weight: 600;
+        }
+        QPushButton:hover {
+            background-color: #E0E7FF;
+        }
+        """
+
+    def completed_button_style(self):
+        return """
+        QPushButton {
+            background-color: #D1FAE5;
+            color: #065F46;
+            border-radius: 16px;
+            padding: 6px 16px;
+            font-weight: 600;
+        }
+        """
+
+    # Toggle Completed State
+    def toggle_completed(self):
+        self.completed = not self.completed
+
+        if self.completed:
+            self.setStyleSheet(self.completed_style())
+            self.button.setText("Completed ✓")
+            self.button.setStyleSheet(self.completed_button_style())
+        else:
+            self.setStyleSheet(self.default_style())
+            self.button.setText("Mark Done")
+            self.button.setStyleSheet(self.mark_done_style())
+
 
 
 class WeekDayCard(QFrame):
@@ -387,7 +497,8 @@ class ModernDashboard(QWidget):
                 border-radius: 20px;
             }
         """)
-        
+        self.apply_card_shadow(daily_card)
+
         daily_layout = QVBoxLayout(daily_card)
         daily_layout.setContentsMargins(30, 28, 30, 28)
         daily_layout.setSpacing(20)
@@ -411,8 +522,10 @@ class ModernDashboard(QWidget):
         
         # Today's Habits
         habits_card = QFrame()
+        habits_card.setObjectName("todayCard")
+        habits_card.setFixedHeight(455)
         habits_card.setStyleSheet("""
-            QFrame {
+            QFrame#todayCard {
                 background-color: #FFFFFF;
                 border-radius: 20px;
             }
@@ -420,13 +533,15 @@ class ModernDashboard(QWidget):
         
         habits_layout = QVBoxLayout(habits_card)
         habits_layout.setContentsMargins(30, 28, 30, 28)
-        habits_layout.setSpacing(18)
+        habits_layout.setSpacing(16)
         
         habits_header = QHBoxLayout()
+        habits_header.setContentsMargins(26, 0 , 26,  0)
+        habits_header.setSpacing(15)
         
         habits_title = QLabel("Today's Habits")
         habits_title.setFont(QFont("SF Pro Display", 22, QFont.Bold))
-        habits_title.setStyleSheet("color: #111827;")
+        habits_title.setStyleSheet("background-color: transparent; color: #111827;")
         habits_header.addWidget(habits_title)
         
         habits_header.addStretch()
@@ -442,13 +557,61 @@ class ModernDashboard(QWidget):
                 padding: 6px 16px;
             }
         """)
-        habits_header.addWidget(self.habits_count)
-        
+    
         habits_layout.addLayout(habits_header)
-        
+        habits_layout.addSpacing(10)
+
         # Scrollable habits
         habits_scroll = QScrollArea()
+        habits_scroll.setFrameShape(QFrame.NoFrame)
         habits_scroll.setWidgetResizable(True)
+        habits_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        habits_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        habits_scroll.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: transparent;
+            }
+            QScrollBar:vertical {
+                background: #F3F4F6;
+                width: 8px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical {
+                background: #667eea;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #5568d3;
+            }
+        """)
+
+        # Wrap scroll inside inner recessed container
+        habit_list_container = QFrame()
+        habit_list_container.setStyleSheet("""
+            QFrame {
+                background-color: #FFFFFF;
+                border-radius: 16px;
+            }
+        """)
+       
+        # APPLY UPWARD SHADOW
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(20)
+        shadow.setColor(QColor(0, 0, 0, 45))
+        shadow.setOffset(0, 3)
+        habit_list_container.setGraphicsEffect(shadow)
+
+        inner_layout = QVBoxLayout(habit_list_container)
+        inner_layout.setContentsMargins(15, 0, 15, 0)
+        inner_layout.addWidget(habits_scroll)
+
+        habits_layout.addWidget(habit_list_container)
+
+        habits_scroll.setFrameShape(QFrame.NoFrame)
+        habits_scroll.setStyleSheet("background: transparent;")
+        habits_scroll.setWidgetResizable(True)
+        habits_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         habits_scroll.setFrameShape(QFrame.NoFrame)
         habits_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         habits_scroll.setStyleSheet("""
@@ -473,12 +636,11 @@ class ModernDashboard(QWidget):
         habits_container = QWidget()
         habits_container.setStyleSheet("background: transparent;")
         self.habits_list = QVBoxLayout(habits_container)
-        self.habits_list.setSpacing(12)
-        self.habits_list.setContentsMargins(0, 0, 8, 0)
-        self.habits_list.addStretch() 
+        self.habits_list.setSpacing(16)
+        self.habits_list.setContentsMargins(0, 12, 8, 12)
+        self.habits_list.setAlignment(Qt.AlignTop)
         
         habits_scroll.setWidget(habits_container)
-        habits_layout.addWidget(habits_scroll)
         
         top_row.addWidget(habits_card, stretch=1)
         
@@ -527,7 +689,7 @@ class ModernDashboard(QWidget):
         
         # Monthly Milestone
         milestone_card = QFrame()
-        milestone_card.setFixedWidth(380)
+        milestone_card.setFixedHeight(310)
         milestone_card.setStyleSheet("""
             QFrame {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
@@ -632,11 +794,11 @@ class ModernDashboard(QWidget):
                 pending.append(habit)
         
         for habit in pending:
-            card = PremiumHabitCard(habit, False, self)
+            card = HabitCard(habit, False, self)
             self.habits_list.addWidget(card)
         
         for habit in completed_habits:
-            card = PremiumHabitCard(habit, True, self)
+            card = HabitCard(habit, True, self)
             self.habits_list.addWidget(card)
         
         self.habits_list.addStretch()
@@ -678,3 +840,11 @@ class ModernDashboard(QWidget):
             
             day_card = WeekDayCard(day_name, percentage, date.day)
             self.week_grid.addWidget(day_card)
+
+    def apply_card_shadow(self, widget):
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(40)
+        shadow.setColor(QColor(0, 0, 0, 50))
+        shadow.setOffset(0, -6)
+        widget.setGraphicsEffect(shadow)
+

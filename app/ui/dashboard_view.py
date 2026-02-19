@@ -115,6 +115,7 @@ class HabitCard(QFrame):
         self.setObjectName("habitCard")
         self.setFixedHeight(92)
         self.setCursor(Qt.PointingHandCursor)
+        
 
         self.setup_ui()
         self.apply_shadow()
@@ -219,38 +220,18 @@ class HabitCard(QFrame):
         try:
             self.habit_service.mark_habit_complete(self.habit.id)
 
-            # Light animation
-            animation = QPropertyAnimation(self, b"windowOpacity")
-            animation.setDuration(180)
-            animation.setStartValue(1)
-            animation.setEndValue(0.7)
-            animation.start()
+            self.fade_animation = QPropertyAnimation(self, b"windowOpacity")
+            self.fade_animation.setDuration(180)
+            self.fade_animation.setStartValue(1)
+            self.fade_animation.setEndValue(0.7)
+            self.fade_animation.start()
+
 
             if self.parent_view and hasattr(self.parent_view, "load_dashboard"):
                 self.parent_view.load_dashboard()
 
         except Exception as e:
             print("Error:", e)
-
-
-def apply_completed_style(self):
-    self.setStyleSheet("""
-        QFrame#habitCard {
-            background-color: #F9FAFB;
-            border-radius: 18px;
-            border-left: 4px solid #10B981;
-        }
-    """)
-    self.button.setText("Completed ✓")
-    self.button.setStyleSheet("""
-        QPushButton {
-            background-color: #D1FAE5;
-            color: #065F46;
-            border-radius: 16px;
-            padding: 6px 16px;
-            font-weight: 600;
-        }
-    """)
 
     # Styles
     def default_style(self):
@@ -297,21 +278,6 @@ def apply_completed_style(self):
             font-weight: 600;
         }
         """
-
-    # Toggle Completed State
-    def toggle_completed(self):
-        self.completed = not self.completed
-
-        if self.completed:
-            self.setStyleSheet(self.completed_style())
-            self.button.setText("Completed ✓")
-            self.button.setStyleSheet(self.completed_button_style())
-        else:
-            self.setStyleSheet(self.default_style())
-            self.button.setText("Mark Done")
-            self.button.setStyleSheet(self.mark_done_style())
-
-
 
 class WeekDayCard(QFrame):
     """Week day card"""
@@ -417,7 +383,10 @@ class ModernDashboard(QWidget):
         greeting_layout.addWidget(greeting_label)
         
         today = datetime.now()
-        date_str = today.strftime("%A, %B %dth")
+        # date_str = today.strftime("%A, %B %dth")
+        date_str = today.strftime(f"%A, %B {self._ordinal(today.day)}")
+
+
         
         date_label = QLabel(f'{date_str} • "Success is the sum of small efforts, repeated day in and day out."')
         date_label.setFont(QFont("SF Pro Text", 13))
@@ -530,7 +499,8 @@ class ModernDashboard(QWidget):
                 border-radius: 20px;
             }
         """)
-        
+        self.apply_card_shadow(habits_card)
+
         habits_layout = QVBoxLayout(habits_card)
         habits_layout.setContentsMargins(30, 28, 30, 28)
         habits_layout.setSpacing(16)
@@ -607,37 +577,12 @@ class ModernDashboard(QWidget):
         inner_layout.addWidget(habits_scroll)
 
         habits_layout.addWidget(habit_list_container)
-
-        habits_scroll.setFrameShape(QFrame.NoFrame)
-        habits_scroll.setStyleSheet("background: transparent;")
-        habits_scroll.setWidgetResizable(True)
-        habits_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        habits_scroll.setFrameShape(QFrame.NoFrame)
-        habits_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        habits_scroll.setStyleSheet("""
-            QScrollArea {
-                border: none;
-                background-color: transparent;
-            }
-            QScrollBar:vertical {
-                background: #F3F4F6;
-                width: 8px;
-                border-radius: 4px;
-            }
-            QScrollBar::handle:vertical {
-                background: #667eea;
-                border-radius: 4px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background: #5568d3;
-            }
-        """)
         
         habits_container = QWidget()
         habits_container.setStyleSheet("background: transparent;")
         self.habits_list = QVBoxLayout(habits_container)
         self.habits_list.setSpacing(16)
-        self.habits_list.setContentsMargins(0, 12, 8, 12)
+        self.habits_list.setContentsMargins(12, 12, 12, 12)
         self.habits_list.setAlignment(Qt.AlignTop)
         
         habits_scroll.setWidget(habits_container)
@@ -748,72 +693,92 @@ class ModernDashboard(QWidget):
         scroll.setWidget(content)
         main_layout.addWidget(scroll)
     
+    def _ordinal(self, n):
+        if 11 <= n % 100 <= 13:
+            return f"{n}th"
+        return f"{n}{['th','st','nd','rd','th','th','th','th','th','th'][n % 10]}"
+
     def show_add_habit(self):
         if self.main_window:
             self.main_window.show_add_habit_dialog()
     
     def load_dashboard(self):
         """Load all dashboard data"""
+
+        # Clear existing habit cards
         while self.habits_list.count():
             item = self.habits_list.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
-        
+
+        # Fetch habits
         habits = self.habit_service.get_all_habits()
-        
+
         if not habits:
             self.progress_text.setText("No habits yet.\nCreate your first one!")
             self.habits_count.setText("0")
             self.circular_progress.set_percentage(0)
+            self.streak_label.setText("0 Day Streak!")
             self.load_weekly_activity()
             return
-        
+
+        # ✅ Cache completion results (ONLY one call per habit)
+        completion_map = {
+            habit.id: self.habit_service.is_habit_completed_today(habit.id)
+            for habit in habits
+        }
+
         # Calculate progress
-        completed = sum(1 for h in habits if self.habit_service.is_habit_completed_today(h.id))
+        completed = sum(1 for done in completion_map.values() if done)
         total = len(habits)
         percentage = int((completed / total) * 100) if total > 0 else 0
-        
+
         self.circular_progress.set_percentage(percentage)
         self.habits_count.setText(str(total))
-        
+
         left = total - completed
         if left == 0:
             self.progress_text.setText("🎉 Perfect!\nAll habits completed!")
         else:
-            self.progress_text.setText(f"Almost there!\n{left} habit{'s' if left != 1 else ''} left.")
-        
-        # Load habits
+            self.progress_text.setText(
+                f"Almost there!\n{left} habit{'s' if left != 1 else ''} left."
+            )
+
+        # Separate habits using cached results
         pending = []
         completed_habits = []
-        
+
         for habit in habits:
-            is_completed = self.habit_service.is_habit_completed_today(habit.id)
-            if is_completed:
+            if completion_map[habit.id]:
                 completed_habits.append(habit)
             else:
                 pending.append(habit)
-        
+
+        # Add pending first
         for habit in pending:
             card = HabitCard(habit, False, self)
             self.habits_list.addWidget(card)
-        
+
+        # Then completed
         for habit in completed_habits:
             card = HabitCard(habit, True, self)
             self.habits_list.addWidget(card)
-        
+
         self.habits_list.addStretch()
-        
-        # Calculate streak
+
+        # Calculate max streak
         max_streak = 0
         for habit in habits:
             streak_info = self.streak_service.get_streak_info(habit.id)
-            max_streak = max(max_streak, streak_info['current_streak'])
-        
+            current = streak_info.get('current_streak', 0)
+            max_streak = max(max_streak, current)
+
         self.streak_label.setText(f"{max_streak} Day Streak!")
-        
-        # Load weekly
+
+        # Load weekly activity
         self.load_weekly_activity()
-    
+
+
     def load_weekly_activity(self):
         """Load weekly activity graph"""
         while self.week_grid.count():
@@ -843,8 +808,8 @@ class ModernDashboard(QWidget):
 
     def apply_card_shadow(self, widget):
         shadow = QGraphicsDropShadowEffect()
-        shadow.setBlurRadius(40)
-        shadow.setColor(QColor(0, 0, 0, 50))
-        shadow.setOffset(0, -6)
+        shadow.setBlurRadius(35)
+        shadow.setColor(QColor(0, 0, 0, 40))
+        shadow.setOffset(0, 8)
         widget.setGraphicsEffect(shadow)
 

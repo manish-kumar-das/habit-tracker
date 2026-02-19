@@ -1,16 +1,19 @@
 """
-Settings Content View - Shows in main content area (not dialog)
+Settings Content View - WITH EXPORT DATA & TRASH
 """
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-    QPushButton, QScrollArea, QFrame, QCheckBox,
-    QComboBox, QSpinBox, QTimeEdit, QMessageBox
+    QPushButton, QScrollArea, QFrame, QLineEdit,
+    QTextEdit, QMessageBox, QCheckBox, QComboBox, QTimeEdit, QFileDialog
 )
 from PySide6.QtCore import Qt, QTime
 from PySide6.QtGui import QFont, QCursor
 from app.services.settings_service import get_settings_service
 from app.utils.constants import THEME_DARK, THEME_LIGHT
+import json
+import os
+from datetime import datetime
 
 
 class SettingCard(QFrame):
@@ -29,7 +32,7 @@ class SettingCard(QFrame):
                 border-radius: 12px;
             }
         """)
-        self.setFixedHeight(100)
+        self.setMinimumHeight(100)
         
         layout = QHBoxLayout(self)
         layout.setContentsMargins(24, 16, 24, 16)
@@ -61,45 +64,53 @@ class SettingCard(QFrame):
         layout.addLayout(text_layout, stretch=1)
         
         # Control widget
-        widget.setStyleSheet("""
-            QCheckBox {
-                color: #111827;
-                font-size: 13px;
-            }
-            QCheckBox::indicator {
-                width: 24px;
-                height: 24px;
-                border-radius: 6px;
-                border: 2px solid #E5E7EB;
-            }
-            QCheckBox::indicator:checked {
-                background-color: #6366F1;
-                border: 2px solid #6366F1;
-            }
-            QComboBox {
-                padding: 8px 16px;
-                border: 2px solid #E5E7EB;
-                border-radius: 8px;
-                background-color: #F9FAFB;
-                color: #111827;
-                min-width: 150px;
-            }
-            QComboBox:hover { border: 2px solid #6366F1; }
-            QTimeEdit {
-                padding: 8px 16px;
-                border: 2px solid #E5E7EB;
-                border-radius: 8px;
-                background-color: #F9FAFB;
-                color: #111827;
-                min-width: 120px;
-            }
-            QTimeEdit:hover { border: 2px solid #6366F1; }
-        """)
-        layout.addWidget(widget)
+        if widget:
+            widget.setStyleSheet("""
+                QCheckBox {
+                    color: #111827;
+                    font-size: 13px;
+                }
+                QCheckBox::indicator {
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 6px;
+                    border: 2px solid #E5E7EB;
+                }
+                QCheckBox::indicator:checked {
+                    background-color: #6366F1;
+                    border: 2px solid #6366F1;
+                }
+                QComboBox {
+                    padding: 8px 16px;
+                    border: 2px solid #E5E7EB;
+                    border-radius: 8px;
+                    background-color: #F9FAFB;
+                    color: #111827;
+                    min-width: 150px;
+                }
+                QComboBox:hover { border: 2px solid #6366F1; }
+                QTimeEdit {
+                    padding: 8px 16px;
+                    border: 2px solid #E5E7EB;
+                    border-radius: 8px;
+                    background-color: #F9FAFB;
+                    color: #111827;
+                    min-width: 120px;
+                }
+                QTimeEdit:hover { border: 2px solid #6366F1; }
+                QPushButton {
+                    padding: 10px 20px;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    font-weight: bold;
+                }
+            """)
+            layout.addWidget(widget)
 
 
 class SettingsContentView(QWidget):
-    """Settings view for content area"""
+    """Settings view with Export & Trash"""
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -259,6 +270,118 @@ class SettingsContentView(QWidget):
         )
         content_layout.addWidget(completed_card)
         
+        content_layout.addSpacing(16)
+        
+        # Data Management Section
+        data_label = QLabel("💾 Data Management")
+        data_label.setFont(QFont("SF Pro Display", 18, QFont.Bold))
+        data_label.setStyleSheet("color: #111827; background: transparent;")
+        content_layout.addWidget(data_label)
+        
+        # Export Data Button
+        export_btn = QPushButton("📤 Export Data")
+        export_btn.setFont(QFont("SF Pro Text", 14, QFont.Bold))
+        export_btn.setFixedHeight(44)
+        export_btn.setCursor(Qt.PointingHandCursor)
+        export_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3B82F6;
+                color: #FFFFFF;
+            }
+            QPushButton:hover {
+                background-color: #2563EB;
+            }
+        """)
+        export_btn.clicked.connect(self.export_data)
+        
+        export_card = SettingCard(
+            "📥",
+            "Export All Data",
+            "Download all your habits, logs, and statistics as JSON file",
+            export_btn
+        )
+        content_layout.addWidget(export_card)
+        
+        # Import Data Button
+        import_btn = QPushButton("📥 Import Data")
+        import_btn.setFont(QFont("SF Pro Text", 14, QFont.Bold))
+        import_btn.setFixedHeight(44)
+        import_btn.setCursor(Qt.PointingHandCursor)
+        import_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #8B5CF6;
+                color: #FFFFFF;
+            }
+            QPushButton:hover {
+                background-color: #7C3AED;
+            }
+        """)
+        import_btn.clicked.connect(self.import_data)
+        
+        import_card = SettingCard(
+            "📤",
+            "Import Data",
+            "Restore your data from a previously exported JSON file",
+            import_btn
+        )
+        content_layout.addWidget(import_card)
+        
+        content_layout.addSpacing(16)
+        
+        # Danger Zone Section
+        danger_label = QLabel("⚠️ Danger Zone")
+        danger_label.setFont(QFont("SF Pro Display", 18, QFont.Bold))
+        danger_label.setStyleSheet("color: #DC2626; background: transparent;")
+        content_layout.addWidget(danger_label)
+        
+        # View Trash Button
+        trash_btn = QPushButton("🗑️ View Trash")
+        trash_btn.setFont(QFont("SF Pro Text", 14, QFont.Bold))
+        trash_btn.setFixedHeight(44)
+        trash_btn.setCursor(Qt.PointingHandCursor)
+        trash_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #F59E0B;
+                color: #FFFFFF;
+            }
+            QPushButton:hover {
+                background-color: #D97706;
+            }
+        """)
+        trash_btn.clicked.connect(self.view_trash)
+        
+        trash_card = SettingCard(
+            "🗑️",
+            "Deleted Habits",
+            "View and restore deleted habits from trash",
+            trash_btn
+        )
+        content_layout.addWidget(trash_card)
+        
+        # Clear All Data Button
+        clear_btn = QPushButton("🔥 Clear All Data")
+        clear_btn.setFont(QFont("SF Pro Text", 14, QFont.Bold))
+        clear_btn.setFixedHeight(44)
+        clear_btn.setCursor(Qt.PointingHandCursor)
+        clear_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #EF4444;
+                color: #FFFFFF;
+            }
+            QPushButton:hover {
+                background-color: #DC2626;
+            }
+        """)
+        clear_btn.clicked.connect(self.clear_all_data)
+        
+        clear_card = SettingCard(
+            "⚠️",
+            "Clear All Data",
+            "Permanently delete all habits, logs, goals, and achievements",
+            clear_btn
+        )
+        content_layout.addWidget(clear_card)
+        
         content_layout.addStretch()
         
         # Info section
@@ -361,9 +484,312 @@ class SettingsContentView(QWidget):
             msg.exec()
             
         except Exception as e:
-            # Error message
             msg = QMessageBox(self)
             msg.setIcon(QMessageBox.Critical)
             msg.setWindowTitle("Error")
             msg.setText(f"Failed to save settings: {str(e)}")
+            msg.exec()
+    
+    def export_data(self):
+        """Export all data to JSON"""
+        try:
+            from app.services.habit_service import get_habit_service
+            from app.services.goal_service import get_goal_service
+            from app.services.achievement_service import get_achievement_service
+            from app.db.database import get_db_connection
+            
+            # Get file path from user
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Export Data",
+                f"habithub_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                "JSON Files (*.json)"
+            )
+            
+            if not file_path:
+                return
+            
+            # Collect all data
+            habit_service = get_habit_service()
+            goal_service = get_goal_service()
+            achievement_service = get_achievement_service()
+            
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Get habits
+            habits = []
+            for habit in habit_service.get_all_habits():
+                habits.append({
+                    'id': habit.id,
+                    'name': habit.name,
+                    'description': habit.description,
+                    'category': habit.category,
+                    'frequency': habit.frequency,
+                    'created_at': habit.created_at
+                })
+            
+            # Get habit logs
+            cursor.execute('SELECT * FROM habit_logs')
+            logs = [dict(row) for row in cursor.fetchall()]
+            
+            # Get goals
+            goals = []
+            try:
+                for goal in goal_service.get_all_goals(include_completed=True):
+                    goals.append({
+                        'id': goal.id,
+                        'habit_id': goal.habit_id,
+                        'goal_type': goal.goal_type,
+                        'target_value': goal.target_value,
+                        'current_value': goal.current_value,
+                        'is_completed': goal.is_completed,
+                        'created_at': goal.created_at
+                    })
+            except:
+                pass
+            
+            # Get achievements
+            achievements = []
+            try:
+                cursor.execute('SELECT * FROM achievements')
+                achievements = [dict(row) for row in cursor.fetchall()]
+            except:
+                pass
+            
+            # Get settings
+            cursor.execute('SELECT * FROM settings')
+            settings = [dict(row) for row in cursor.fetchall()]
+            
+            conn.close()
+            
+            # Create export data
+            export_data = {
+                'export_date': datetime.now().isoformat(),
+                'version': '1.0',
+                'habits': habits,
+                'habit_logs': logs,
+                'goals': goals,
+                'achievements': achievements,
+                'settings': settings
+            }
+            
+            # Write to file
+            with open(file_path, 'w') as f:
+                json.dump(export_data, f, indent=2)
+            
+            # Success message
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Information)
+            msg.setWindowTitle("Export Successful")
+            msg.setText("✅ Data exported successfully!")
+            msg.setInformativeText(f"File saved to:\n{file_path}")
+            msg.exec()
+            
+        except Exception as e:
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Export Failed")
+            msg.setText(f"Failed to export data: {str(e)}")
+            msg.exec()
+    
+    def import_data(self):
+        """Import data from JSON"""
+        # Warning message first
+        reply = QMessageBox.question(
+            self,
+            "Import Data",
+            "⚠️ Warning: This will replace ALL your current data!\n\nAre you sure you want to continue?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply != QMessageBox.Yes:
+            return
+        
+        try:
+            # Get file from user
+            file_path, _ = QFileDialog.getOpenFileName(
+                self,
+                "Import Data",
+                "",
+                "JSON Files (*.json)"
+            )
+            
+            if not file_path:
+                return
+            
+            # Read file
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+            
+            from app.db.database import get_db_connection
+            
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Clear existing data
+            cursor.execute('DELETE FROM habit_logs')
+            cursor.execute('DELETE FROM habits')
+            cursor.execute('DELETE FROM goals')
+            cursor.execute('DELETE FROM achievements')
+            cursor.execute('DELETE FROM settings')
+            
+            # Import habits
+            for habit in data.get('habits', []):
+                cursor.execute('''
+                    INSERT INTO habits (id, name, description, category, frequency, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (habit['id'], habit['name'], habit['description'], 
+                      habit['category'], habit['frequency'], habit['created_at']))
+            
+            # Import logs
+            for log in data.get('habit_logs', []):
+                cursor.execute('''
+                    INSERT INTO habit_logs (habit_id, completed_date, created_at)
+                    VALUES (?, ?, ?)
+                ''', (log['habit_id'], log['completed_date'], log.get('created_at', datetime.now().strftime("%Y-%m-%d %H:%M:%S"))))
+            
+            # Import goals
+            for goal in data.get('goals', []):
+                cursor.execute('''
+                    INSERT INTO goals (id, habit_id, goal_type, target_value, current_value, is_completed, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (goal['id'], goal['habit_id'], goal['goal_type'], goal['target_value'],
+                      goal['current_value'], goal['is_completed'], goal['created_at']))
+            
+            # Import achievements
+            for achievement in data.get('achievements', []):
+                cursor.execute('''
+                    INSERT INTO achievements (id, name, description, type, requirement, is_unlocked, unlocked_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (achievement['id'], achievement['name'], achievement['description'],
+                      achievement['type'], achievement['requirement'], achievement['is_unlocked'],
+                      achievement.get('unlocked_at')))
+            
+            # Import settings
+            for setting in data.get('settings', []):
+                cursor.execute('''
+                    INSERT INTO settings (key, value)
+                    VALUES (?, ?)
+                ''', (setting['key'], setting['value']))
+            
+            conn.commit()
+            conn.close()
+            
+            # Success message
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Information)
+            msg.setWindowTitle("Import Successful")
+            msg.setText("✅ Data imported successfully!")
+            msg.setInformativeText("Please restart the app to see the changes.")
+            msg.exec()
+            
+        except Exception as e:
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Import Failed")
+            msg.setText(f"Failed to import data: {str(e)}")
+            msg.exec()
+    
+    def view_trash(self):
+        """View deleted habits in trash"""
+        try:
+            from app.db.database import get_db_connection
+            
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute('SELECT * FROM deleted_habits ORDER BY deleted_at DESC')
+            deleted_habits = cursor.fetchall()
+            
+            conn.close()
+            
+            if not deleted_habits:
+                msg = QMessageBox(self)
+                msg.setIcon(QMessageBox.Information)
+                msg.setWindowTitle("Trash Empty")
+                msg.setText("🗑️ Trash is empty!")
+                msg.setInformativeText("No deleted habits to display.")
+                msg.exec()
+                return
+            
+            # Create trash view dialog
+            from app.ui.trash_view import TrashDialog
+            trash_dialog = TrashDialog(self)
+            trash_dialog.exec()
+            
+        except Exception as e:
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Error")
+            msg.setText(f"Failed to open trash: {str(e)}")
+            msg.exec()
+    
+    def clear_all_data(self):
+        """Clear all data (dangerous operation)"""
+        # Double confirmation
+        reply1 = QMessageBox.question(
+            self,
+            "Clear All Data",
+            "⚠️ DANGER: This will permanently delete ALL your data!\n\n"
+            "This includes:\n"
+            "• All habits\n"
+            "• All completion logs\n"
+            "• All goals\n"
+            "• All achievements\n"
+            "• All settings\n\n"
+            "Are you absolutely sure?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply1 != QMessageBox.Yes:
+            return
+        
+        reply2 = QMessageBox.question(
+            self,
+            "Final Confirmation",
+            "🔥 LAST CHANCE!\n\nThis action CANNOT be undone!\n\nType YES to confirm:",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply2 != QMessageBox.Yes:
+            return
+        
+        try:
+            from app.db.database import get_db_connection
+            
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Delete all data
+            cursor.execute('DELETE FROM habit_logs')
+            cursor.execute('DELETE FROM habits')
+            cursor.execute('DELETE FROM deleted_habits')
+            cursor.execute('DELETE FROM goals')
+            cursor.execute('DELETE FROM achievements')
+            cursor.execute('DELETE FROM settings')
+            
+            conn.commit()
+            conn.close()
+            
+            # Success message
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Information)
+            msg.setWindowTitle("Data Cleared")
+            msg.setText("✅ All data has been cleared!")
+            msg.setInformativeText("The app will restart with fresh data.")
+            msg.exec()
+            
+            # Restart app
+            if self.main_window:
+                self.main_window.close()
+            
+        except Exception as e:
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Error")
+            msg.setText(f"Failed to clear data: {str(e)}")
             msg.exec()

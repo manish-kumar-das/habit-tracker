@@ -279,70 +279,120 @@ class HabitCard(QFrame):
         }
         """
 
-class WeekDayCard(QFrame):
-    """Week day card"""
-    
-    def __init__(self, day_name, percentage, day_number, parent=None):
+class WeekDayCard(QWidget):
+    """Weekly Activity Card - Brand Gradient Version"""
+
+    def __init__(self, day_name, percentage, day_number, is_today=False, parent=None):
         super().__init__(parent)
+        self.percentage = percentage
+        self.is_today = is_today
         self.setup_ui(day_name, percentage, day_number)
-    
+
     def setup_ui(self, day_name, percentage, day_number):
-        self.setFixedSize(118, 165)
-        
-        if percentage >= 80:
-            gradient = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #10B981, stop:1 #059669)"
+        self.setFixedWidth(125)
+
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(10)
+        main_layout.setAlignment(Qt.AlignCenter)
+
+        # ---------- CARD ----------
+        card = QFrame()
+        card.setFixedSize(125, 190)
+
+        if percentage > 0:
+            background = """
+                qlineargradient(x1:0,y1:0,x2:0,y2:1,
+                stop:0 #667eea,
+                stop:0.5 #764ba2,
+                stop:1 #f093fb)
+            """
             text_color = "#FFFFFF"
-            status = "Perfect!"
-        elif percentage >= 50:
-            gradient = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #F59E0B, stop:1 #D97706)"
-            text_color = "#FFFFFF"
-            status = "Good"
-        elif percentage > 0:
-            gradient = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #EF4444, stop:1 #DC2626)"
-            text_color = "#FFFFFF"
-            status = "Try More"
         else:
-            gradient = "#F3F4F6"
+            background = "#F3F4F6"
             text_color = "#9CA3AF"
-            status = "Start"
-        
-        self.setStyleSheet(f"""
+
+        border = "2px solid #667eea;" if self.is_today else "none;"
+
+        card.setStyleSheet(f"""
             QFrame {{
-                background: {gradient};
-                border-radius: 16px;
+                background: {background};
+                border-radius: 22px;
+                border: {border}
             }}
         """)
-        
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 16, 10, 16)
-        layout.setSpacing(11)
-        layout.setAlignment(Qt.AlignCenter)
-        
-        day_label = QLabel(day_name)
-        day_label.setFont(QFont("SF Pro Text", 12, QFont.Bold))
-        day_label.setStyleSheet(f"color: {text_color}; background: transparent;")
-        day_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(day_label)
-        
-        date_label = QLabel(str(day_number))
-        date_label.setFont(QFont("SF Pro Display", 18))
-        date_label.setStyleSheet(f"color: {text_color}; background: transparent;")
-        date_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(date_label)
-        
-        layout.addSpacing(7)
-        
+
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(18, 22, 18, 20)
+        card_layout.setSpacing(12)
+        card_layout.setAlignment(Qt.AlignCenter)
+
+
+        # Percentage
         percent_label = QLabel(f"{percentage}%")
-        percent_label.setFont(QFont("SF Pro Display", 30, QFont.Bold))
+        percent_label.setFont(QFont("SF Pro Display", 32, QFont.Bold))
         percent_label.setStyleSheet(f"color: {text_color}; background: transparent;")
         percent_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(percent_label)
-        
-        status_label = QLabel(status)
-        status_label.setFont(QFont("SF Pro Text", 11, QFont.Medium))
-        status_label.setStyleSheet(f"color: {text_color}; background: transparent;")
-        status_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(status_label)
+        card_layout.addWidget(percent_label)
+
+        # Progress Bar
+        progress_bg = QFrame()
+        progress_bg.setFixedHeight(6)
+
+        if percentage > 0:
+            progress_bg.setStyleSheet("""
+                QFrame {
+                    background: rgba(255,255,255,0.35);
+                    border-radius: 3px;
+                }
+            """)
+        else:
+            progress_bg.setStyleSheet("""
+                QFrame {
+                    background: #E5E7EB;
+                    border-radius: 3px;
+                }
+            """)
+
+        progress_fill = QFrame(progress_bg)
+        progress_fill.setGeometry(
+            0,
+            0,
+            int((percentage / 100) * 85),
+            6
+        )
+
+        progress_fill.setStyleSheet("""
+            QFrame {
+                background: white;
+                border-radius: 3px;
+            }
+        """)
+
+        card_layout.addWidget(progress_bg)
+
+        main_layout.addWidget(card)
+
+        # ---------- DAY NAME BELOW ----------
+        day_label = QLabel(day_name)
+        day_label.setFont(QFont("SF Pro Text", 12, QFont.Bold))
+        day_label.setStyleSheet("color: #6B7280;")
+        day_label.setAlignment(Qt.AlignCenter)
+        main_layout.addWidget(day_label)
+
+                # Date Number
+        date_label = QLabel(str(day_number))
+        date_label.setFont(QFont("SF Pro Display", 22, QFont.Bold))
+        date_label.setStyleSheet(f"color: {text_color}; background: transparent;")
+        date_label.setAlignment(Qt.AlignCenter)
+        card_layout.addWidget(date_label)
+
+        # Shadow only on card
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(35)
+        shadow.setOffset(0, 10)
+        shadow.setColor(QColor(0, 0, 0, 35))
+        card.setGraphicsEffect(shadow)
 
 
 class ModernDashboard(QWidget):

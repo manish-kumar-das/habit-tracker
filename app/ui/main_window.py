@@ -73,32 +73,32 @@ class MainWindow(QMainWindow):
     
         self.update_status_bar()
 
-    def show_today_view(self):
-        """Show today's habits view"""
-        self.clear_content_area()
+    # def show_today_view(self):
+    #     """Show today's habits view"""
+    #     self.clear_content_area()
     
-        from app.ui.today_content_view import TodayContentView
-        today_view = TodayContentView(self)
-        self.content_layout.addWidget(today_view)
+    #     from app.ui.today_content_view import TodayContentView
+    #     today_view = TodayContentView(self)
+    #     self.content_layout.addWidget(today_view)
     
-        if hasattr(self, 'sidebar'):
-            self.sidebar.update_active_button('today')
+    #     if hasattr(self, 'sidebar'):
+    #         self.sidebar.update_active_button('today')
     
-        self.update_status_bar()
+    #     self.update_status_bar()
 
-    def show_habits_view(self):
-        """Show all habits view"""
-        self.clear_content_area()
+    # def show_habits_view(self):
+    #     """Show all habits view"""
+    #     self.clear_content_area()
     
-        from app.ui.habits_list_view import HabitsListView
-        habits_view = HabitsListView()
-        self.content_layout.addWidget(habits_view)
-        habits_view.load_habits()
+    #     from app.ui.habits_list_view import HabitsListView
+    #     habits_view = HabitsListView()
+    #     self.content_layout.addWidget(habits_view)
+    #     habits_view.load_habits()
     
-        if hasattr(self, 'sidebar'):
-            self.sidebar.update_active_button('habits')
+    #     if hasattr(self, 'sidebar'):
+    #         self.sidebar.update_active_button('habits')
     
-        self.update_status_bar()
+    #     self.update_status_bar()
 
     def clear_content_area(self):
         """Clear all widgets from content area"""

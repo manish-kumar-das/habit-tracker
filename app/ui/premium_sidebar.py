@@ -102,10 +102,8 @@ class PremiumSidebar(QFrame):
         self.nav_buttons = {}
         nav_items = [
             ("dashboard", "Dashboard", "🏠"),
-            ("today", "Today", "📅"),
-            ("habits", "All Habits", "⚡"),
-            ("analytics", "Analytics", "📊"),
             ("goals", "Goals", "🎯"),
+            ("analytics", "Analytics", "📊"),
             ("settings", "Settings", "⚙️"),
         ]
         

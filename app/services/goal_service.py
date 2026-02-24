@@ -1,177 +1,248 @@
 """
-Service for managing goals - SIMPLIFIED
+Goal Service - Handles all goal-related operations
 """
 
-from datetime import datetime
 from app.db.database import get_db_connection
 from app.models.goal import Goal
+from datetime import datetime
 
 
 class GoalService:
-    """Service for goal operations"""
-
+    """Service for managing goals"""
+    
     def __init__(self):
-        pass
-
-    def create_goal(
-        self,
-        habit_id,
-        goal_type,
-        target_value,
-        description,
-        deadline=None,
-        category=None,
-    ):
+        self._ensure_goals_table()
+    
+    def _ensure_goals_table(self):
+        """Ensure goals table exists with correct schema"""
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Create goals table if not exists
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS goals (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    habit_id INTEGER NOT NULL,
+                    goal_type TEXT NOT NULL,
+                    target_value INTEGER NOT NULL,
+                    current_value INTEGER DEFAULT 0,
+                    is_completed INTEGER DEFAULT 0,
+                    created_at TEXT NOT NULL,
+                    completed_at TEXT,
+                    FOREIGN KEY (habit_id) REFERENCES habits (id) ON DELETE CASCADE
+                )
+            ''')
+            
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"Error ensuring goals table: {e}")
+    
+    def create_goal(self, habit_id, goal_type, target_value):
         """Create a new goal"""
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        start_date = datetime.now().strftime("%Y-%m-%d")
-
-        cursor.execute(
-            """
-            INSERT INTO goals (habit_id, goal_type, target_value, description,
-                             start_date, deadline, category)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """,
-            (
-                habit_id,
-                goal_type,
-                target_value,
-                description,
-                start_date,
-                deadline,
-                category,
-            ),
-        )
-
-        goal_id = cursor.lastrowid
-        conn.commit()
-        conn.close()
-
-        self.update_goal_progress(goal_id)
-
-        return goal_id
-
-    def get_all_goals(self, include_completed=True):
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            cursor.execute('''
+                INSERT INTO goals (habit_id, goal_type, target_value, current_value, is_completed, created_at)
+                VALUES (?, ?, ?, 0, 0, ?)
+            ''', (habit_id, goal_type, target_value, created_at))
+            
+            goal_id = cursor.lastrowid
+            
+            conn.commit()
+            conn.close()
+            
+            return goal_id
+        except Exception as e:
+            print(f"Error creating goal: {e}")
+            return None
+    
+    def get_all_goals(self, include_completed=False):
         """Get all goals"""
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        if include_completed:
-            cursor.execute(
-                "SELECT * FROM goals ORDER BY is_completed ASC, created_at DESC"
-            )
-        else:
-            cursor.execute(
-                "SELECT * FROM goals WHERE is_completed = 0 ORDER BY created_at DESC"
-            )
-
-        rows = cursor.fetchall()
-        conn.close()
-
-        return [Goal.from_db_row(row) for row in rows]
-
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            if include_completed:
+                cursor.execute('SELECT * FROM goals ORDER BY created_at DESC')
+            else:
+                cursor.execute('SELECT * FROM goals WHERE is_completed = 0 ORDER BY created_at DESC')
+            
+            rows = cursor.fetchall()
+            conn.close()
+            
+            goals = []
+            for row in rows:
+                goal = Goal(
+                    id=row['id'],
+                    habit_id=row['habit_id'],
+                    goal_type=row['goal_type'],
+                    target_value=row['target_value'],
+                    current_value=row['current_value'],
+                    is_completed=bool(row['is_completed']),
+                    created_at=row['created_at'],
+                    completed_at=row['completed_at'] if 'completed_at' in row.keys() else None
+                )
+                goals.append(goal)
+            
+            return goals
+        except Exception as e:
+            print(f"Error getting goals: {e}")
+            return []
+    
     def get_goal_by_id(self, goal_id):
-        """Get goal by ID"""
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        cursor.execute("SELECT * FROM goals WHERE id = ?", (goal_id,))
-        row = cursor.fetchone()
-        conn.close()
-
-        return Goal.from_db_row(row) if row else None
-
-    def update_goal_progress(self, goal_id):
-        """Update goal progress based on current data"""
-        goal = self.get_goal_by_id(goal_id)
-        if not goal:
-            return
-
-        from app.services.habit_service import get_habit_service
-        from app.services.streak_service import get_streak_service
-
-        habit_service = get_habit_service()
-        streak_service = get_streak_service()
-
-        current_value = 0
-
-        if goal.goal_type == "streak" and goal.habit_id:
-            streak_info = streak_service.get_streak_info(goal.habit_id)
-            current_value = streak_info["current_streak"]
-        elif goal.goal_type == "total" and goal.habit_id:
-            completions = habit_service.get_habit_completions(goal.habit_id)
-            current_value = len(completions)
-        elif goal.goal_type == "consistency" and goal.habit_id:
-            from app.services.stats_service import get_stats_service
-
-            stats = get_stats_service().get_habit_stats(goal.habit_id)
-            current_value = stats["completion_rate_30d"]
-
-        is_completed = current_value >= goal.target_value
-        completed_date = (
-            datetime.now().strftime("%Y-%m-%d")
-            if is_completed and not goal.is_completed
-            else goal.completed_date
-        )
-
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        cursor.execute(
-            """
-            UPDATE goals 
-            SET current_value = ?, is_completed = ?, completed_date = ?
-            WHERE id = ?
-        """,
-            (current_value, 1 if is_completed else 0, completed_date, goal_id),
-        )
-
-        conn.commit()
-        conn.close()
-
-        return is_completed and not goal.is_completed
-
-    def update_all_goals_progress(self):
-        """Update progress for all active goals"""
-        goals = self.get_all_goals(include_completed=False)
-        newly_completed = []
-
-        for goal in goals:
-            if self.update_goal_progress(goal.id):
-                newly_completed.append(goal)
-
-        return newly_completed
-
+        """Get a specific goal by ID"""
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute('SELECT * FROM goals WHERE id = ?', (goal_id,))
+            row = cursor.fetchone()
+            
+            conn.close()
+            
+            if row:
+                return Goal(
+                    id=row['id'],
+                    habit_id=row['habit_id'],
+                    goal_type=row['goal_type'],
+                    target_value=row['target_value'],
+                    current_value=row['current_value'],
+                    is_completed=bool(row['is_completed']),
+                    created_at=row['created_at'],
+                    completed_at=row['completed_at'] if 'completed_at' in row.keys() else None
+                )
+            
+            return None
+        except Exception as e:
+            print(f"Error getting goal by id: {e}")
+            return None
+    
+    def get_goals_by_habit(self, habit_id, include_completed=False):
+        """Get all goals for a specific habit"""
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            if include_completed:
+                cursor.execute('SELECT * FROM goals WHERE habit_id = ? ORDER BY created_at DESC', (habit_id,))
+            else:
+                cursor.execute('SELECT * FROM goals WHERE habit_id = ? AND is_completed = 0 ORDER BY created_at DESC', (habit_id,))
+            
+            rows = cursor.fetchall()
+            conn.close()
+            
+            goals = []
+            for row in rows:
+                goal = Goal(
+                    id=row['id'],
+                    habit_id=row['habit_id'],
+                    goal_type=row['goal_type'],
+                    target_value=row['target_value'],
+                    current_value=row['current_value'],
+                    is_completed=bool(row['is_completed']),
+                    created_at=row['created_at'],
+                    completed_at=row['completed_at'] if 'completed_at' in row.keys() else None
+                )
+                goals.append(goal)
+            
+            return goals
+        except Exception as e:
+            print(f"Error getting goals by habit: {e}")
+            return []
+    
+    def update_goal_progress(self, goal_id, current_value):
+        """Update goal progress"""
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                UPDATE goals 
+                SET current_value = ? 
+                WHERE id = ?
+            ''', (current_value, goal_id))
+            
+            conn.commit()
+            conn.close()
+            
+            return True
+        except Exception as e:
+            print(f"Error updating goal progress: {e}")
+            return False
+    
+    def complete_goal(self, goal_id):
+        """Mark a goal as completed"""
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            completed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            cursor.execute('''
+                UPDATE goals 
+                SET is_completed = 1, completed_at = ? 
+                WHERE id = ?
+            ''', (completed_at, goal_id))
+            
+            conn.commit()
+            conn.close()
+            
+            return True
+        except Exception as e:
+            print(f"Error completing goal: {e}")
+            return False
+    
     def delete_goal(self, goal_id):
         """Delete a goal"""
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute('DELETE FROM goals WHERE id = ?', (goal_id,))
+            
+            conn.commit()
+            conn.close()
+            
+            return True
+        except Exception as e:
+            print(f"Error deleting goal: {e}")
+            return False
+    
+    def check_and_update_goals(self, habit_id):
+        """Check and update all active goals for a habit"""
+        try:
+            from app.services.streak_service import get_streak_service
+            
+            goals = self.get_goals_by_habit(habit_id, include_completed=False)
+            streak_service = get_streak_service()
+            
+            for goal in goals:
+                if 'streak' in goal.goal_type.lower():
+                    # Update streak goals
+                    streak_info = streak_service.get_streak_info(habit_id)
+                    current_streak = streak_info.get('current_streak', 0)
+                    
+                    self.update_goal_progress(goal.id, current_streak)
+                    
+                    # Check if goal completed
+                    if current_streak >= goal.target_value:
+                        self.complete_goal(goal.id)
+        except Exception as e:
+            print(f"Error checking and updating goals: {e}")
 
-        cursor.execute("DELETE FROM goals WHERE id = ?", (goal_id,))
 
-        conn.commit()
-        conn.close()
-
-    def get_completed_goals_count(self):
-        """Get count of completed goals"""
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        cursor.execute("SELECT COUNT(*) FROM goals WHERE is_completed = 1")
-        count = cursor.fetchone()[0]
-
-        conn.close()
-        return count
-
-
-# Global service instance
+# Singleton instance
 _goal_service_instance = None
 
 
-def get_goal_service() -> GoalService:
-    """Get global goal service instance"""
+def get_goal_service():
+    """Get the goal service singleton instance"""
     global _goal_service_instance
     if _goal_service_instance is None:
         _goal_service_instance = GoalService()

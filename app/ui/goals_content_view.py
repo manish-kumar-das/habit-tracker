@@ -74,11 +74,35 @@ class GoalCard(QFrame):
     
     def setup_ui(self):
         """Setup goal card UI"""
-        self.setMinimumHeight(180)
+        self.setMinimumHeight(210)
+        self.setSizePolicy(QFrame.Expanding, QFrame.Fixed)
         
         # Calculate progress
-        progress_percent = (self.goal.current_value / self.goal.target_value * 100) if self.goal.target_value > 0 else 0
+        # progress_percent = (self.goal.current_value / self.goal.target_value * 100) if self.goal.target_value > 0 else 0
+        completions = getattr(self.habit, "completions", [])
+        current_value = len(completions)
+
+        # progress_percent = (
+        #     current_value / self.goal.target_value * 100
+        #     if self.goal.target_value > 0 else 0
+        # )
         
+        # Calculate progress dynamically from habit completions
+        # habit = self.habit_service.get_habit_by_id(self.goal.habit_id)
+
+        # completions = getattr(habit, "completions", [])
+        # current_value = len(completions)
+
+        progress_percent = (
+            current_value / self.goal.target_value * 100
+            if self.goal.target_value > 0 else 0
+        )
+
+        progress_text = QLabel(
+            f"{current_value} / {self.goal.target_value} {self._get_unit()}"
+        )
+
+
         # Status-based styling
         days_left = self._calculate_days_left()
         
@@ -142,14 +166,14 @@ class GoalCard(QFrame):
         habit_label.setStyleSheet("color: #6B7280;")
         info_layout.addWidget(habit_label)
         
-        # Progress text
-        progress_text = QLabel(f"{self.goal.current_value} / {self.goal.target_value} {self._get_unit()}")
+        
+        # ===== Progress Text (CLEAN) =====
+        progress_text = QLabel(f"{current_value} / {self.goal.target_value} {self._get_unit()}")
         progress_text.setFont(QFont("SF Pro Display", 16, QFont.Bold))
         progress_text.setStyleSheet(f"color: {status_color};")
         info_layout.addWidget(progress_text)
-        
-        top_row.addLayout(info_layout, stretch=1)
-        
+        top_row.addLayout(info_layout, 1)
+
         # Right: Actions
         actions_layout = QVBoxLayout()
         actions_layout.setSpacing(10)
@@ -180,7 +204,7 @@ class GoalCard(QFrame):
         
         layout.addLayout(top_row)
         
-        # Progress bar
+        # ===== Progress Bar =====
         progress_bar_container = QFrame()
         progress_bar_container.setFixedHeight(16)
         progress_bar_container.setStyleSheet("""
@@ -189,18 +213,24 @@ class GoalCard(QFrame):
                 border-radius: 8px;
             }
         """)
-        
-        progress_fill = QFrame(progress_bar_container)
-        fill_width = int((self.width() - 56) * (progress_percent / 100))
-        progress_fill.setGeometry(0, 0, fill_width, 16)
-        progress_fill.setStyleSheet(f"""
-            QFrame {{
+
+        progress_bar_layout = QHBoxLayout(progress_bar_container)
+        progress_bar_layout.setContentsMargins(0, 0, 0, 0)
+        progress_bar_layout.setSpacing(0)
+
+        progress_fill = QFrame()
+        progress_fill.setStyleSheet("""
+            QFrame {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                     stop:0 #667eea, stop:1 #764ba2);
                 border-radius: 8px;
-            }}
+            }
         """)
-        
+
+        # Use stretch instead of fixed width
+        progress_bar_layout.addWidget(progress_fill, int(progress_percent))
+        progress_bar_layout.addStretch(100 - int(progress_percent))
+
         layout.addWidget(progress_bar_container)
         
         # Bottom row: Status + Date

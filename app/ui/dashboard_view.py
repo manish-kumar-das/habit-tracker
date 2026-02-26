@@ -65,7 +65,7 @@ class SimpleCircularProgress(QWidget):
         # Gradient Progress Arc
         if self.percentage > 0:
             gradient = QLinearGradient(
-                center_x - radius, center_y, center_x + radius, center_y
+                center_x, center_y - radius, center_x, center_y + radius
             )
             gradient.setColorAt(0, QColor("#667eea"))
             gradient.setColorAt(0.5, QColor("#764ba2"))
@@ -463,16 +463,16 @@ class ModernDashboard(QWidget):
         new_btn.setCursor(Qt.PointingHandCursor)
         new_btn.setStyleSheet("""
             QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #667eea, stop:1 #764ba2);
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #667eea, stop:0.5 #764ba2, stop:1 #f093fb);
                 color: #FFFFFF;
                 border: none;
                 border-radius: 12px;
                 padding: 0px 26px;
             }
             QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #5568d3, stop:1 #6a4191);
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #5568d3, stop:0.5 #6a4191, stop:1 #e07af0);
             }
         """)
         new_btn.clicked.connect(self.show_add_habit)
@@ -563,8 +563,8 @@ class ModernDashboard(QWidget):
         self.habits_count.setFont(QFont("SF Pro Display", 15, QFont.Bold))
         self.habits_count.setStyleSheet("""
             QLabel {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #667eea, stop:1 #764ba2);
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #667eea, stop:0.5 #764ba2, stop:1 #f093fb);
                 color: #FFFFFF;
                 border-radius: 12px;
                 padding: 6px 16px;
@@ -681,7 +681,7 @@ class ModernDashboard(QWidget):
         milestone_card.setFixedHeight(310)
         milestone_card.setStyleSheet("""
             QFrame#streakCard {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #667eea, stop:0.5 #764ba2, stop:1 #f093fb);
                 border: 1.5px solid rgba(240, 147, 251, 0.35);
                 border-radius: 24px;
@@ -691,7 +691,7 @@ class ModernDashboard(QWidget):
 
         streak_card_shadow = QGraphicsDropShadowEffect()
         streak_card_shadow.setBlurRadius(40)
-        streak_card_shadow.setColor(QColor(118, 75, 162, 120))  
+        streak_card_shadow.setColor(QColor(118, 75, 162, 120))
         streak_card_shadow.setOffset(0, 12)
         milestone_card.setGraphicsEffect(streak_card_shadow)
 

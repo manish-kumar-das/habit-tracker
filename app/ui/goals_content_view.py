@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QComboBox,
     QSpinBox,
-    QDialogButtonBox,
     QMessageBox,
     QSizePolicy,
 )
@@ -50,9 +49,10 @@ class CircularProgressGoal(QWidget):
 
         # Progress arc
         if self.percentage > 0:
-            gradient = QLinearGradient(0, 0, self.size, self.size)
+            gradient = QLinearGradient(0, 0, 0, self.size)
             gradient.setColorAt(0, QColor("#667eea"))
-            gradient.setColorAt(1, QColor("#764ba2"))
+            gradient.setColorAt(0.5, QColor("#764ba2"))
+            gradient.setColorAt(1, QColor("#f093fb"))
 
             pen = QPen(gradient, 6)
             pen.setCapStyle(Qt.RoundCap)
@@ -92,8 +92,8 @@ class GoalCard(QFrame):
 
     def setup_ui(self):
         """Setup goal card UI"""
-        self.setMinimumHeight(210)
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)  # CORRECT
+        self.setMinimumHeight(240)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         # Calculate progress
         current_value = self.goal.current_value
@@ -128,11 +128,16 @@ class GoalCard(QFrame):
             border_color = "#6366F1"
             status_color = "#4F46E5"
 
+        self.setObjectName("goalCard")
         self.setStyleSheet(f"""
-            QFrame {{
+            QFrame#goalCard {{
                 background: {bg_gradient};
-                border-left: 5px solid {border_color};
                 border-radius: 20px;
+                border: 1px solid rgba(0, 0, 0, 0.05);
+            }}
+            QLabel {{
+                border: none;
+                background: transparent;
             }}
         """)
 
@@ -142,10 +147,6 @@ class GoalCard(QFrame):
         shadow.setColor(QColor(0, 0, 0, 30))
         shadow.setOffset(0, 8)
         self.setGraphicsEffect(shadow)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 24, 28, 24)
-        layout.setSpacing(20)
 
         # Top row: Progress circle + Info + Actions
         top_row = QHBoxLayout()
@@ -208,6 +209,34 @@ class GoalCard(QFrame):
 
         top_row.addLayout(actions_layout)
 
+        # Accent strip (Fixes bracket glitch and provides status color)
+        # Using a layout trick to place it correctly
+        outer_layout = QHBoxLayout(self)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(0)
+
+        accent_strip = QFrame()
+        accent_strip.setFixedWidth(6)
+        accent_strip.setStyleSheet(f"""
+            QFrame {{
+                background-color: {border_color};
+                border-top-left-radius: 20px;
+                border-bottom-left-radius: 20px;
+            }}
+        """)
+        outer_layout.addWidget(accent_strip)
+
+        card_content = QWidget()
+        card_content.setObjectName("cardContent")
+        card_content.setStyleSheet(
+            "QWidget#cardContent { background: transparent; border: none; }"
+        )
+        outer_layout.addWidget(card_content, 1)
+
+        layout = QVBoxLayout(card_content)
+        layout.setContentsMargins(28, 24, 28, 24)
+        layout.setSpacing(20)
+
         layout.addLayout(top_row)
 
         # ===== Progress Bar =====
@@ -225,11 +254,13 @@ class GoalCard(QFrame):
         progress_bar_layout.setSpacing(0)
 
         progress_fill = QFrame()
+        progress_fill.setObjectName("progressFill")
         progress_fill.setStyleSheet("""
-            QFrame {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #667eea, stop:1 #764ba2);
+            QFrame#progressFill {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #667eea, stop:0.5 #764ba2, stop:1 #f093fb);
                 border-radius: 8px;
+                border: none;
             }
         """)
 
@@ -334,7 +365,7 @@ class GoalCard(QFrame):
                 target_date = created + timedelta(days=30)
                 days_left = (target_date - datetime.now()).days
                 return max(0, days_left)
-            except:
+            except Exception:
                 return 30
         return 30
 
@@ -349,7 +380,7 @@ class GoalCard(QFrame):
         reply = QMessageBox.question(
             self,
             "Delete Goal",
-            f"Are you sure you want to delete this goal?",
+            "Are you sure you want to delete this goal?",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
         )
@@ -582,16 +613,16 @@ class AddGoalDialog(QDialog):
         create_btn.setCursor(Qt.PointingHandCursor)
         create_btn.setStyleSheet("""
             QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #667eea, stop:1 #764ba2);
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #667eea, stop:0.5 #764ba2, stop:1 #f093fb);
                 color: #FFFFFF;
                 border: none;
                 border-radius: 12px;
                 padding: 0px 32px;
             }
             QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #5568d3, stop:1 #6a4191);
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #5568d3, stop:0.5 #6a4191, stop:1 #e07af0);
             }
         """)
         create_btn.clicked.connect(self.accept)
@@ -618,7 +649,7 @@ class AddGoalDialog(QDialog):
         goal_type = self.type_combo.currentData()
         target_value = self.target_spin.value()
 
-        print(f"\n[AddGoalDialog.get_goal_data] Returning:")
+        print("\n[AddGoalDialog.get_goal_data] Returning:")
         print(f"  habit_id={habit_id} (type: {type(habit_id).__name__})")
         print(f"  goal_type={goal_type} (type: {type(goal_type).__name__})")
         print(f"  target_value={target_value} (type: {type(target_value).__name__})")
@@ -705,16 +736,16 @@ class GoalsContentView(QWidget):
         new_goal_btn.setCursor(Qt.PointingHandCursor)
         new_goal_btn.setStyleSheet("""
             QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #667eea, stop:1 #764ba2);
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #667eea, stop:0.5 #764ba2, stop:1 #f093fb);
                 color: #FFFFFF;
                 border: none;
                 border-radius: 12px;
                 padding: 0px 32px;
             }
             QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #5568d3, stop:1 #6a4191);
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #5568d3, stop:0.5 #6a4191, stop:1 #e07af0);
             }
         """)
         new_goal_btn.clicked.connect(self.show_add_goal_dialog)
@@ -877,7 +908,7 @@ class GoalsContentView(QWidget):
             # Step 4: Get goal data
             print("\n[4] Getting goal data from dialog...")
             goal_data = dialog.get_goal_data()
-            print(f"   ✓ Goal data received:")
+            print("   ✓ Goal data received:")
             print(f"      - Habit ID: {goal_data['habit_id']}")
             print(f"      - Goal Type: {goal_data['goal_type']}")
             print(f"      - Target Value: {goal_data['target_value']}")
@@ -908,7 +939,6 @@ class GoalsContentView(QWidget):
                 QMessageBox.Ok,
             )
 
-            print("\n" + "=" * 50)
             print("✅ GOAL CREATION COMPLETED SUCCESSFULLY")
             print("=" * 50 + "\n")
 

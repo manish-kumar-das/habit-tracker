@@ -119,9 +119,14 @@ class LineChart(QWidget):
                 points.append((x, y))
 
             # Draw gradient fill
-            gradient = QLinearGradient(0, margin, 0, margin + chart_height)
-            gradient.setColorAt(0, QColor(99, 102, 241, 100))
-            gradient.setColorAt(1, QColor(99, 102, 241, 10))
+            # Use brand gradient with transparency
+            brand_gradient = QLinearGradient(0, margin, 0, margin + chart_height)
+            brand_gradient.setColorAt(
+                0, QColor(102, 126, 234, 100)
+            )  # #667eea (alpha 100/255)
+            brand_gradient.setColorAt(
+                1, QColor(240, 147, 251, 20)
+            )  # #f093fb (alpha 20/255)
 
             fill_path = QPainterPath()
             fill_path.moveTo(points[0][0], margin + chart_height)
@@ -130,21 +135,21 @@ class LineChart(QWidget):
             fill_path.lineTo(points[-1][0], margin + chart_height)
             fill_path.closeSubpath()
 
-            painter.fillPath(fill_path, gradient)
+            painter.fillPath(fill_path, brand_gradient)
 
             # Draw line
             path.moveTo(points[0][0], points[0][1])
             for x, y in points[1:]:
                 path.lineTo(x, y)
 
-            painter.setPen(QPen(QColor("#6366F1"), 3))
+            painter.setPen(QPen(QColor("#764ba2"), 4))
             painter.drawPath(path)
 
             # Draw points
             for x, y in points:
                 painter.setBrush(QColor("#FFFFFF"))
-                painter.setPen(QPen(QColor("#6366F1"), 2))
-                painter.drawEllipse(int(x) - 4, int(y) - 4, 8, 8)
+                painter.setPen(QPen(QColor("#667eea"), 3))
+                painter.drawEllipse(int(x) - 5, int(y) - 5, 10, 10)
 
         # Draw X-axis labels
         painter.setPen(QColor("#6B7280"))
@@ -254,8 +259,9 @@ class BarChart(QWidget):
 
             # Gradient for bar
             gradient = QLinearGradient(x, y, x, y + bar_height)
-            gradient.setColorAt(0, QColor("#8B5CF6"))
-            gradient.setColorAt(1, QColor("#6366F1"))
+            gradient.setColorAt(0, QColor("#667eea"))
+            gradient.setColorAt(0.5, QColor("#764ba2"))
+            gradient.setColorAt(1, QColor("#f093fb"))
 
             painter.fillRect(int(x), int(y), int(bar_width), int(bar_height), gradient)
 
@@ -310,12 +316,18 @@ class StatCard(QFrame):
         self.setFixedHeight(180)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-        self.setStyleSheet(f"""
-            QFrame {{
+        self.setObjectName("statCard")
+        self.setStyleSheet("""
+            QFrame#statCard {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 {gradient_colors[0]}, stop:1 {gradient_colors[1]});
-                border-radius: 22px;
-            }}
+                    stop:0 #667eea, stop:0.5 #764ba2, stop:1 #f093fb);
+                border-radius: 24px;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+            }
+            QLabel {
+                border: none;
+                background: transparent;
+            }
         """)
 
         # Softer, more premium shadow
@@ -577,9 +589,7 @@ class AnalyticsContentView(QWidget):
         consistency_score = calculate_consistency()
 
         # Card 1: Total Habits
-        total_card = StatCard(
-            "🎯", "Total Habits", total_habits, "Active habits", ["#6366F1", "#8B5CF6"]
-        )
+        total_card = StatCard("🎯", "Total Habits", total_habits, "Active habits", None)
         hero_layout.addWidget(total_card, 1)
 
         # Card 2: Today Progress
@@ -592,7 +602,7 @@ class AnalyticsContentView(QWidget):
             "Today Progress",
             f"{completed_today}/{total_habits}",
             f"{today_percentage}% completed",
-            ["#10B981", "#059669"],
+            None,
         )
         hero_layout.addWidget(today_card, 1)
 
@@ -606,11 +616,7 @@ class AnalyticsContentView(QWidget):
         )
 
         streak_card = StatCard(
-            "🔥",
-            "Current Streak",
-            f"{current_streak}",
-            "days in a row",
-            ["#EF4444", "#DC2626"],
+            "🔥", "Current Streak", f"{current_streak}", "days in a row", None
         )
         hero_layout.addWidget(streak_card, 1)
 
@@ -618,15 +624,13 @@ class AnalyticsContentView(QWidget):
         score_label = (
             "Excellent"
             if consistency_score >= 8
-            else "Good" if consistency_score >= 6 else "Needs Work"
+            else "Good"
+            if consistency_score >= 6
+            else "Needs Work"
         )
 
         score_card = StatCard(
-            "⭐",
-            "Consistency Score",
-            f"{consistency_score}/10",
-            score_label,
-            ["#F59E0B", "#D97706"],
+            "⭐", "Consistency Score", f"{consistency_score}/10", score_label, None
         )
         hero_layout.addWidget(score_card, 1)
 
@@ -640,7 +644,6 @@ class AnalyticsContentView(QWidget):
         # SECTION 3: Week Comparison (already added)
         self.add_week_comparison_section()
 
-        # ✅ ADD THESE NEW SECTIONS:
         # SECTION 4: Day of Week Analysis
         self.add_day_of_week_analysis()
 
@@ -649,600 +652,6 @@ class AnalyticsContentView(QWidget):
 
         # SECTION 6: Time of Day + Difficulty
         self.add_time_of_day_difficulty()
-
-        # SECTION 7: Streak Heatmap
-        self.add_streak_heatmap()
-
-        # SECTION 8: Achievements
-        self.add_achievements_section()
-    
-        # self.content_layout.addStretch()  # Keep at end
-
-
-
-        
-
-    def add_streak_heatmap(self):
-        """GitHub-style Streak Calendar Heatmap"""
-        heatmap_card = QFrame()
-        heatmap_card.setStyleSheet("""
-            QFrame {
-                background-color: #FFFFFF;
-                border-radius: 20px;
-                border: 1px solid #F1F5F9;
-            }
-        """)
-
-        shadow = QGraphicsDropShadowEffect()
-        shadow.setBlurRadius(30)
-        shadow.setColor(QColor(0, 0, 0, 20))
-        shadow.setOffset(0, 8)
-        heatmap_card.setGraphicsEffect(shadow)
-
-        layout = QVBoxLayout(heatmap_card)
-        layout.setContentsMargins(32, 28, 32, 28)
-        layout.setSpacing(20)
-
-        # Header
-        header = QHBoxLayout()
-
-        title = QLabel("🔥 Streak Heatmap")
-
-        title.setFont(QFont("SF Pro Display", 22, QFont.Bold))
-        title.setStyleSheet("color: #111827;")
-        header.addWidget(title)
-
-        header.addStretch()
-
-        # Period selector
-        period_label = QLabel("Show:")
-        period_label.setFont(QFont("SF Pro Text", 13))
-        period_label.setStyleSheet("color: #6B7280;")
-        header.addWidget(period_label)
-
-        self.heatmap_period = QComboBox()
-        self.heatmap_period.addItems(["Last 90 Days", "Last 180 Days", "Last 365 Days"])
-        self.heatmap_period.setCurrentText("Last 90 Days")
-        self.heatmap_period.setFont(QFont("SF Pro Text", 12))
-        self.heatmap_period.setFixedHeight(36)
-        self.heatmap_period.setStyleSheet("""
-            QComboBox {
-                background-color: #F9FAFB;
-                border: 2px solid #E5E7EB;
-                border-radius: 8px;
-                padding: 4px 12px;
-                min-width: 130px;
-            }
-            QComboBox:hover {
-                border: 2px solid #6366F1;
-            }
-        """)
-        self.heatmap_period.currentTextChanged.connect(self.update_heatmap)
-        header.addWidget(self.heatmap_period)
-
-        layout.addLayout(header)
-
-        # Subtitle
-        subtitle = QLabel(
-            "Your consistency over time - darker colors mean more completions"
-        )
-        subtitle.setFont(QFont("SF Pro Text", 13))
-        subtitle.setStyleSheet("color: #6B7280;")
-        layout.addWidget(subtitle)
-
-        # Heatmap container
-        self.heatmap_container = QWidget()
-        self.heatmap_layout = QVBoxLayout(self.heatmap_container)
-        self.heatmap_layout.setContentsMargins(0, 10, 0, 10)
-        self.heatmap_layout.setSpacing(0)
-
-        layout.addWidget(self.heatmap_container)
-
-        # Legend
-        legend = QHBoxLayout()
-        legend.setSpacing(12)
-
-        legend_label = QLabel("Less")
-        legend_label.setFont(QFont("SF Pro Text", 11))
-        legend_label.setStyleSheet("color: #9CA3AF;")
-        legend.addWidget(legend_label)
-
-        # Color boxes
-        colors = ["#EBEDF0", "#C6E48B", "#7BC96F", "#239A3B", "#196127"]
-        for color in colors:
-            box = QFrame()
-            box.setFixedSize(18, 18)
-            box.setStyleSheet(f"""
-                QFrame {{
-                    background-color: {color};
-                    border: 1px solid #E5E7EB;
-                    border-radius: 3px;
-                }}
-            """)
-            legend.addWidget(box)
-
-        legend_label2 = QLabel("More")
-        legend_label2.setFont(QFont("SF Pro Text", 11))
-        legend_label2.setStyleSheet("color: #9CA3AF;")
-        legend.addWidget(legend_label2)
-
-        legend.addStretch()
-
-        layout.addLayout(legend)
-
-        self.content_layout.addWidget(heatmap_card)
-
-        # Initial load
-        self.update_heatmap()
-
-
-    def update_heatmap(self):
-        """Update heatmap based on selected period"""
-        # Clear existing
-        while self.heatmap_layout.count():
-            item = self.heatmap_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-
-        period_text = self.heatmap_period.currentText()
-        days_map = {"Last 90 Days": 90, "Last 180 Days": 180, "Last 365 Days": 365}
-        total_days = days_map.get(period_text, 90)
-
-        # Get habits
-        habits = self.habit_service.get_all_habits()
-        if not habits:
-            empty_label = QLabel("No data to display")
-            empty_label.setAlignment(Qt.AlignCenter)
-            empty_label.setStyleSheet("color: #9CA3AF; padding: 40px;")
-            self.heatmap_layout.addWidget(empty_label)
-            return
-
-        # Calculate activity for each day
-        activity_data = []
-        max_completions = len(habits)
-
-        for i in range(total_days):
-            date = datetime.now() - timedelta(days=total_days - 1 - i)
-            date_str = date.strftime("%Y-%m-%d")
-
-            completions = sum(
-                1
-                for h in habits
-                if self.habit_service.is_habit_completed_on_date(h.id, date_str)
-            )
-            percentage = (completions / max_completions * 100) if max_completions > 0 else 0
-
-            activity_data.append(
-                {"date": date, "completions": completions, "percentage": percentage}
-            )
-
-        # Create heatmap grid (weeks)
-        weeks = []
-        current_week = []
-
-        for i, day_data in enumerate(activity_data):
-            current_week.append(day_data)
-
-            # New week on Sunday or end of data
-            if day_data["date"].weekday() == 6 or i == len(activity_data) - 1:
-                weeks.append(current_week)
-                current_week = []
-
-        # Render weeks horizontally
-        grid_container = QWidget()
-        grid_layout = QHBoxLayout(grid_container)
-        grid_layout.setContentsMargins(0, 0, 0, 0)
-        grid_layout.setSpacing(4)
-
-        # Month labels (top)
-        months_shown = set()
-
-        for week in weeks:
-            week_col = QVBoxLayout()
-            week_col.setSpacing(4)
-
-            for day_data in week:
-                cell = QFrame()
-                cell.setFixedSize(14, 14)
-                cell.setToolTip(
-                    f"{day_data['date'].strftime('%b %d, %Y')}\n{day_data['completions']}/{max_completions} habits"
-                )
-
-                # Color based on percentage
-                percentage = day_data["percentage"]
-                if percentage == 0:
-                    color = "#EBEDF0"
-                elif percentage <= 25:
-                    color = "#C6E48B"
-                elif percentage <= 50:
-                    color = "#7BC96F"
-                elif percentage <= 75:
-                    color = "#239A3B"
-                else:
-                    color = "#196127"
-
-                cell.setStyleSheet(f"""
-                    QFrame {{
-                        background-color: {color};
-                        border: 1px solid #E5E7EB;
-                        border-radius: 2px;
-                    }}
-                    QFrame:hover {{
-                        border: 2px solid #6366F1;
-                    }}
-                """)
-                cell.setCursor(Qt.PointingHandCursor)
-
-                week_col.addWidget(cell)
-
-            grid_layout.addLayout(week_col)
-
-        grid_layout.addStretch()
-
-        self.heatmap_layout.addWidget(grid_container)
-
-        # Stats below
-        stats_container = QFrame()
-        stats_container.setStyleSheet("""
-            QFrame {
-                background-color: #F9FAFB;
-                border-radius: 12px;
-                padding: 16px;
-            }
-        """)
-
-        stats_layout = QHBoxLayout(stats_container)
-        stats_layout.setSpacing(40)
-
-        # Calculate stats
-        total_completions = sum(d["completions"] for d in activity_data)
-        perfect_days = sum(1 for d in activity_data if d["percentage"] == 100)
-        zero_days = sum(1 for d in activity_data if d["percentage"] == 0)
-        avg_rate = (
-            sum(d["percentage"] for d in activity_data) / len(activity_data)
-            if activity_data
-            else 0
-        )
-
-        stats = [
-            ("📊", "Total Completions", str(total_completions)),
-            ("⭐", "Perfect Days", str(perfect_days)),
-            ("📉", "Zero Days", str(zero_days)),
-            ("📈", "Average Rate", f"{int(avg_rate)}%"),
-        ]
-
-        for icon, label, value in stats:
-            stat_layout = QVBoxLayout()
-            stat_layout.setSpacing(4)
-
-            icon_label = QLabel(icon)
-            icon_label.setFont(QFont("SF Pro Display", 20))
-            icon_label.setAlignment(Qt.AlignCenter)
-            stat_layout.addWidget(icon_label)
-
-            value_label = QLabel(value)
-            value_label.setFont(QFont("SF Pro Display", 20, QFont.Bold))
-            value_label.setStyleSheet("color: #111827;")
-            value_label.setAlignment(Qt.AlignCenter)
-            stat_layout.addWidget(value_label)
-
-            label_widget = QLabel(label)
-            label_widget.setFont(QFont("SF Pro Text", 11))
-            label_widget.setStyleSheet("color: #6B7280;")
-            label_widget.setAlignment(Qt.AlignCenter)
-            stat_layout.addWidget(label_widget)
-
-            stats_layout.addLayout(stat_layout)
-
-        stats_layout.addStretch()
-
-        self.heatmap_layout.addWidget(stats_container)
-
-
-    def add_achievements_section(self):
-        """Achievement Badges & Milestones"""
-        achievements_card = QFrame()
-        achievements_card.setStyleSheet("""
-            QFrame {
-                background-color: #FFFFFF;
-                border-radius: 20px;
-                border: 1px solid #F1F5F9;
-            }
-        """)
-
-        shadow = QGraphicsDropShadowEffect()
-        shadow.setBlurRadius(30)
-        shadow.setColor(QColor(0, 0, 0, 20))
-        shadow.setOffset(0, 8)
-        achievements_card.setGraphicsEffect(shadow)
-
-        layout = QVBoxLayout(achievements_card)
-        layout.setContentsMargins(32, 28, 32, 32)
-        layout.setSpacing(24)
-
-        # Header
-        header = QHBoxLayout()
-
-        title = QLabel("🏅 Achievements & Milestones")
-        title.setFont(QFont("SF Pro Display", 22, QFont.Bold))
-        title.setStyleSheet("color: #111827;")
-        header.addWidget(title)
-
-        header.addStretch()
-
-        # Badge count
-        habits = self.habit_service.get_all_habits()
-        max_streak = (
-            max(
-                (
-                    self.streak_service.get_streak_info(h.id).get("current_streak", 0)
-                for h in habits
-                ),
-                default=0,
-            )
-            if habits
-            else 0
-        )
-
-        unlocked_count = 0
-        total_badges = 12  # Total available badges
-
-        badge_count_label = QLabel(f"{unlocked_count}/12 Unlocked")
-        badge_count_label.setFont(QFont("SF Pro Text", 13))
-        badge_count_label.setStyleSheet("""
-            QLabel {
-                background-color: #EEF2FF;
-                color: #4F46E5;
-                padding: 6px 16px;
-                border-radius: 12px;
-            }
-        """)
-        header.addWidget(badge_count_label)
-
-        layout.addLayout(header)
-
-        subtitle = QLabel("Unlock badges by building consistent habits")
-        subtitle.setFont(QFont("SF Pro Text", 13))
-        subtitle.setStyleSheet("color: #6B7280;")
-        layout.addWidget(subtitle)
-
-        # Define achievements
-        achievements = [
-            {
-                "icon": "🔥",
-                "name": "First Spark",
-                "desc": "Complete 1 habit",
-                "requirement": 1,
-                "type": "streak",
-            },
-            {
-                "icon": "⚡",
-                "name": "3 Day Warrior",
-                "desc": "Maintain 3 day streak",
-                "requirement": 3,
-                "type": "streak",
-            },
-            {
-                "icon": "💪",
-                "name": "Week Champion",
-                "desc": "Maintain 7 day streak",
-                "requirement": 7,
-                "type": "streak",
-            },
-            {
-                "icon": "🏆",
-                "name": "Month Master",
-                "desc": "Maintain 30 day streak",
-                "requirement": 30,
-                "type": "streak",
-            },
-            {
-                "icon": "💎",
-                "name": "Quarter King",
-                "desc": "Maintain 90 day streak",
-                "requirement": 90,
-                "type": "streak",
-            },
-            {
-                "icon": "👑",
-                "name": "Year Legend",
-                "desc": "Maintain 365 day streak",
-                "requirement": 365,
-                "type": "streak",
-            },
-            {
-                "icon": "⭐",
-                "name": "Perfect Day",
-                "desc": "Complete all habits in one day",
-                "requirement": 1,
-                "type": "perfect",
-            },
-            {
-                "icon": "🌟",
-                "name": "Perfect Week",
-                "desc": "Complete all habits for 7 days",
-                "requirement": 7,
-                "type": "perfect",
-            },
-            {
-                "icon": "✨",
-                "name": "Century Club",
-                "desc": "Complete 100 total habits",
-                "requirement": 100,
-                "type": "total",
-            },
-            {
-                "icon": "🎯",
-                "name": "Half K",
-                "desc": "Complete 500 total habits",
-                "requirement": 500,
-                "type": "total",
-            },
-            {
-                "icon": "🚀",
-                "name": "Grand Master",
-                "desc": "Complete 1000 total habits",
-                "requirement": 1000,
-                "type": "total",
-            },
-            {
-                "icon": "🌈",
-                "name": "Rainbow Warrior",
-                "desc": "Have habits in 5 categories",
-                "requirement": 5,
-                "type": "categories",
-            },
-        ]
-
-        # Calculate total completions
-        total_completions = 0
-        if habits:
-            for i in range(365):  # Last year
-                date = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
-                for habit in habits:
-                    if self.habit_service.is_habit_completed_on_date(habit.id, date):
-                        total_completions += 1
-
-        # Get unique categories
-        categories = set(h.category for h in habits) if habits else set()
-
-        # Badges grid
-        badges_container = QWidget()
-        badges_layout = QHBoxLayout(badges_container)
-        badges_layout.setSpacing(16)
-        badges_layout.setAlignment(Qt.AlignLeft)
-
-        unlocked_count = 0
-
-        for achievement in achievements:
-            # Determine if unlocked
-            is_unlocked = False
-
-            if achievement["type"] == "streak":
-                is_unlocked = max_streak >= achievement["requirement"]
-            elif achievement["type"] == "perfect":
-                # Check for perfect days (simplified)
-                is_unlocked = False  # You can implement perfect day tracking
-            elif achievement["type"] == "total":
-                is_unlocked = total_completions >= achievement["requirement"]
-            elif achievement["type"] == "categories":
-                is_unlocked = len(categories) >= achievement["requirement"]
-
-            if is_unlocked:
-                unlocked_count += 1
-
-            badge = self._create_badge(
-                achievement["icon"], achievement["name"], achievement["desc"], is_unlocked
-            )
-            badges_layout.addWidget(badge)
-
-        # Update badge count
-        badge_count_label.setText(f"{unlocked_count}/{len(achievements)} Unlocked")
-
-        badges_layout.addStretch()
-
-        # Scroll area for badges
-        scroll = QScrollArea()
-        scroll.setWidget(badges_container)
-        scroll.setWidgetResizable(True)
-        scroll.setFixedHeight(180)
-        scroll.setFrameShape(QFrame.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll.setStyleSheet("""
-            QScrollArea {
-                background-color: transparent;
-                border: none;
-            }
-            QScrollBar:horizontal {
-                background: #F3F4F6;
-                height: 8px;
-                border-radius: 4px;
-            }
-            QScrollBar::handle:horizontal {
-                background: #6366F1;
-                border-radius: 4px;
-            }
-        """)
-
-        layout.addWidget(scroll)
-
-        # Next milestone
-        next_milestone_box = QFrame()
-        next_milestone_box.setStyleSheet("""
-            QFrame {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #FEF3C7, stop:1 #FDE68A);
-                border-radius: 16px;
-                padding: 20px;
-            }
-        """)
-
-        next_layout = QVBoxLayout(next_milestone_box)
-        next_layout.setContentsMargins(20, 16, 20, 16)
-        next_layout.setSpacing(12)
-
-        next_title = QLabel("🎯 Next Milestone")
-        next_title.setFont(QFont("SF Pro Display", 16, QFont.Bold))
-        next_title.setStyleSheet("color: #78350F;")
-        next_layout.addWidget(next_title)
-
-        # Find next unachieved streak milestone
-        streak_milestones = [
-            a
-            for a in achievements
-            if a["type"] == "streak" and not (max_streak >= a["requirement"])
-        ]
-        if streak_milestones:
-            next_achievement = streak_milestones[0]
-            days_remaining = next_achievement["requirement"] - max_streak
-            progress_percent = (max_streak / next_achievement["requirement"]) * 100
-
-            next_text = QLabel(
-                f"{next_achievement['icon']} {next_achievement['name']} - {days_remaining} days away!"
-            )
-            next_text.setFont(QFont("SF Pro Text", 14))
-            next_text.setStyleSheet("color: #92400E;")
-            next_layout.addWidget(next_text)
-
-            # Progress bar
-            progress_bg = QFrame()
-            progress_bg.setFixedHeight(12)
-            progress_bg.setStyleSheet("""
-                QFrame {
-                    background-color: #FCD34D;
-                    border-radius: 6px;
-                }
-            """)
-
-            progress_fill = QFrame(progress_bg)
-            fill_width = int(600 * (progress_percent / 100))
-            progress_fill.setGeometry(0, 0, fill_width, 12)
-            progress_fill.setStyleSheet("""
-                QFrame {
-                    background-color: #F59E0B;
-                    border-radius: 6px;
-                }
-            """)
-
-            next_layout.addWidget(progress_bg)
-
-            progress_label = QLabel(
-                f"{max_streak}/{next_achievement['requirement']} days ({int(progress_percent)}%)"
-            )
-            progress_label.setFont(QFont("SF Pro Text", 12))
-            progress_label.setStyleSheet("color: #92400E;")
-            next_layout.addWidget(progress_label)
-        else:
-            congrats = QLabel("🎉 All streak milestones unlocked! You're a legend!")
-            congrats.setFont(QFont("SF Pro Text", 14))
-            congrats.setStyleSheet("color: #92400E;")
-            next_layout.addWidget(congrats)
-
-        layout.addWidget(next_milestone_box)
-
-        self.content_layout.addWidget(achievements_card)
-
 
     def _create_badge(self, icon, name, desc, is_unlocked):
         """Create a single badge widget"""
@@ -1656,207 +1065,207 @@ class AnalyticsContentView(QWidget):
         layout.setSpacing(20)
 
         # Title
-        title = QLabel("📅 Weekly Pattern")
-        title.setFont(QFont("SF Pro Display", 22, QFont.Bold))
-        title.setStyleSheet("color: #111827;")
-        layout.addWidget(title)
+        # title = QLabel("📅 Weekly Pattern")
+        # title.setFont(QFont("SF Pro Display", 22, QFont.Bold))
+        # title.setStyleSheet("color: #111827;")
+        # layout.addWidget(title)
 
-        subtitle = QLabel("See which days you're most consistent")
-        subtitle.setFont(QFont("SF Pro Text", 13))
-        subtitle.setStyleSheet("color: #6B7280;")
-        layout.addWidget(subtitle)
+        # subtitle = QLabel("See which days you're most consistent")
+        # subtitle.setFont(QFont("SF Pro Text", 13))
+        # subtitle.setStyleSheet("color: #6B7280;")
+        # layout.addWidget(subtitle)
 
-        # Calculate data for each day
-        habits = self.habit_service.get_all_habits()
-        if not habits:
-            return
+        # # Calculate data for each day
+        # habits = self.habit_service.get_all_habits()
+        # if not habits:
+        #     return
 
-        day_stats = {i: {"total": 0, "completed": 0} for i in range(7)}
+        # day_stats = {i: {"total": 0, "completed": 0} for i in range(7)}
 
-        # Look back 30 days
-        for i in range(30):
-            date = datetime.now() - timedelta(days=i)
-            day_of_week = date.weekday()
-            date_str = date.strftime("%Y-%m-%d")
+        # # Look back 30 days
+        # for i in range(30):
+        #     date = datetime.now() - timedelta(days=i)
+        #     day_of_week = date.weekday()
+        #     date_str = date.strftime("%Y-%m-%d")
 
-            for habit in habits:
-                day_stats[day_of_week]["total"] += 1
-                if self.habit_service.is_habit_completed_on_date(habit.id, date_str):
-                    day_stats[day_of_week]["completed"] += 1
+        #     for habit in habits:
+        #         day_stats[day_of_week]["total"] += 1
+        #         if self.habit_service.is_habit_completed_on_date(habit.id, date_str):
+        #             day_stats[day_of_week]["completed"] += 1
 
-        # Calculate percentages
-        days_data = []
-        day_names = [
-            "Monday",
-            "Tuesday",
-            "Wednesday",
-            "Thursday",
-            "Friday",
-            "Saturday",
-            "Sunday",
-        ]
-        day_emojis = ["💼", "📊", "🎯", "🚀", "🎉", "🏖️", "☀️"]
+        # # Calculate percentages
+        # days_data = []
+        # day_names = [
+        #     "Monday",
+        #     "Tuesday",
+        #     "Wednesday",
+        #     "Thursday",
+        #     "Friday",
+        #     "Saturday",
+        #     "Sunday",
+        # ]
+        # day_emojis = ["💼", "📊", "🎯", "🚀", "🎉", "🏖️", "☀️"]
 
-        for i in range(7):
-            total = day_stats[i]["total"]
-            completed = day_stats[i]["completed"]
-            percentage = int((completed / total) * 100) if total > 0 else 0
-            days_data.append(
-                {
-                    "name": day_names[i],
-                    "emoji": day_emojis[i],
-                    "percentage": percentage,
-                    "completed": completed,
-                    "total": total,
-                }
-            )
+        # for i in range(7):
+        #     total = day_stats[i]["total"]
+        #     completed = day_stats[i]["completed"]
+        #     percentage = int((completed / total) * 100) if total > 0 else 0
+        #     days_data.append(
+        #         {
+        #             "name": day_names[i],
+        #             "emoji": day_emojis[i],
+        #             "percentage": percentage,
+        #             "completed": completed,
+        #             "total": total,
+        #         }
+        #     )
 
-        # Find best and worst days
-        best_day = max(days_data, key=lambda x: x["percentage"])
-        worst_day = min(days_data, key=lambda x: x["percentage"])
+        # # Find best and worst days
+        # best_day = max(days_data, key=lambda x: x["percentage"])
+        # worst_day = min(days_data, key=lambda x: x["percentage"])
 
-        # Day bars
-        for day_data in days_data:
-            day_container = QFrame()
-            day_container.setFixedHeight(68)
+        # # Day bars
+        # for day_data in days_data:
+        #     day_container = QFrame()
+        #     day_container.setFixedHeight(68)
 
-            # Color based on percentage
-            if day_data["percentage"] >= 80:
-                color = "#10B981"
-                bg_color = "#ECFDF5"
-                text_color = "#065F46"
-                badge = "⭐"
-            elif day_data["percentage"] >= 60:
-                color = "#F59E0B"
-                bg_color = "#FEF3C7"
-                text_color = "#92400E"
-                badge = "👍"
-            else:
-                color = "#EF4444"
-                bg_color = "#FEE2E2"
-                text_color = "#991B1B"
-                badge = "⚠️"
+        #     # Color based on percentage
+        #     if day_data["percentage"] >= 80:
+        #         color = "#10B981"
+        #         bg_color = "#ECFDF5"
+        #         text_color = "#065F46"
+        #         badge = "⭐"
+        #     elif day_data["percentage"] >= 60:
+        #         color = "#F59E0B"
+        #         bg_color = "#FEF3C7"
+        #         text_color = "#92400E"
+        #         badge = "👍"
+        #     else:
+        #         color = "#EF4444"
+        #         bg_color = "#FEE2E2"
+        #         text_color = "#991B1B"
+        #         badge = "⚠️"
 
-            day_container.setStyleSheet(f"""
-                QFrame {{
-                    background-color: {bg_color};
-                    border-left: 4px solid {color};
-                    border-radius: 12px;
-                }}
-            """)
+        #     day_container.setStyleSheet(f"""
+        #         QFrame {{
+        #             background-color: {bg_color};
+        #             border-left: 4px solid {color};
+        #             border-radius: 12px;
+        #         }}
+        #     """)
 
-            day_layout = QHBoxLayout(day_container)
-            day_layout.setContentsMargins(20, 12, 20, 12)
-            day_layout.setSpacing(16)
+        #     day_layout = QHBoxLayout(day_container)
+        #     day_layout.setContentsMargins(20, 12, 20, 12)
+        #     day_layout.setSpacing(16)
 
-            # Left: Day name
-            left_layout = QVBoxLayout()
-            left_layout.setSpacing(2)
+        #     # Left: Day name
+        #     left_layout = QVBoxLayout()
+        #     left_layout.setSpacing(2)
 
-            name_label = QLabel(f"{day_data['emoji']} {day_data['name']}")
-            name_label.setFont(QFont("SF Pro Display", 15, QFont.Bold))
-            name_label.setStyleSheet(f"color: {text_color};")
-            left_layout.addWidget(name_label)
+        #     name_label = QLabel(f"{day_data['emoji']} {day_data['name']}")
+        #     name_label.setFont(QFont("SF Pro Display", 15, QFont.Bold))
+        #     name_label.setStyleSheet(f"color: {text_color};")
+        #     left_layout.addWidget(name_label)
 
-            stats_label = QLabel(
-                f"{day_data['completed']}/{day_data['total']} completed"
-            )
-            stats_label.setFont(QFont("SF Pro Text", 11))
-            stats_label.setStyleSheet("color: #6B7280;")
-            left_layout.addWidget(stats_label)
+        #     stats_label = QLabel(
+        #         f"{day_data['completed']}/{day_data['total']} completed"
+        #     )
+        #     stats_label.setFont(QFont("SF Pro Text", 11))
+        #     stats_label.setStyleSheet("color: #6B7280;")
+        #     left_layout.addWidget(stats_label)
 
-            day_layout.addLayout(left_layout)
+        #     day_layout.addLayout(left_layout)
 
-            # Progress bar
-            progress_container = QWidget()
-            progress_container.setFixedHeight(28)
-            progress_layout = QVBoxLayout(progress_container)
-            progress_layout.setContentsMargins(0, 0, 0, 0)
+        #     # Progress bar
+        #     progress_container = QWidget()
+        #     progress_container.setFixedHeight(28)
+        #     progress_layout = QVBoxLayout(progress_container)
+        #     progress_layout.setContentsMargins(0, 0, 0, 0)
 
-            progress_bg = QFrame()
-            progress_bg.setFixedHeight(12)
-            progress_bg.setStyleSheet("""
-                QFrame {{
-                    background-color: #F3F4F6;
-                    border-radius: 6px;
-                }}
-            """)
+        #     progress_bg = QFrame()
+        #     progress_bg.setFixedHeight(12)
+        #     progress_bg.setStyleSheet("""
+        #         QFrame {{
+        #             background-color: #F3F4F6;
+        #             border-radius: 6px;
+        #         }}
+        #     """)
 
-            progress_fill = QFrame(progress_bg)
-            fill_width = int(300 * (day_data["percentage"] / 100))
-            progress_fill.setGeometry(0, 0, fill_width, 12)
-            progress_fill.setStyleSheet(f"""
-                QFrame {{
-                    background-color: {color};
-                    border-radius: 6px;
-                }}
-            """)
+        #     progress_fill = QFrame(progress_bg)
+        #     fill_width = int(300 * (day_data["percentage"] / 100))
+        #     progress_fill.setGeometry(0, 0, fill_width, 12)
+        #     progress_fill.setStyleSheet(f"""
+        #         QFrame {{
+        #             background-color: {color};
+        #             border-radius: 6px;
+        #         }}
+        #     """)
 
-            progress_layout.addWidget(progress_bg)
+        #     progress_layout.addWidget(progress_bg)
 
-            day_layout.addWidget(progress_container, stretch=1)
+        #     day_layout.addWidget(progress_container, stretch=1)
 
-            # Right: Percentage + Badge
-            right_layout = QHBoxLayout()
-            right_layout.setSpacing(8)
+        #     # Right: Percentage + Badge
+        #     right_layout = QHBoxLayout()
+        #     right_layout.setSpacing(8)
 
-            percentage_label = QLabel(f"{day_data['percentage']}%")
-            percentage_label.setFont(QFont("SF Pro Display", 18, QFont.Bold))
-            percentage_label.setStyleSheet(f"color: {text_color};")
-            right_layout.addWidget(percentage_label)
+        #     percentage_label = QLabel(f"{day_data['percentage']}%")
+        #     percentage_label.setFont(QFont("SF Pro Display", 18, QFont.Bold))
+        #     percentage_label.setStyleSheet(f"color: {text_color};")
+        #     right_layout.addWidget(percentage_label)
 
-            # Add badge for best/worst
-            if day_data["name"] == best_day["name"] and best_day["percentage"] > 0:
-                badge_label = QLabel("🏆")
-                badge_label.setFont(QFont("SF Pro Display", 20))
-                badge_label.setToolTip("Your best day!")
-                right_layout.addWidget(badge_label)
-            elif (
-                day_data["name"] == worst_day["name"]
-                and worst_day["percentage"] < best_day["percentage"]
-            ):
-                badge_label = QLabel("💡")
-                badge_label.setFont(QFont("SF Pro Display", 20))
-                badge_label.setToolTip("Room for improvement")
-                right_layout.addWidget(badge_label)
+        #     # Add badge for best/worst
+        #     if day_data["name"] == best_day["name"] and best_day["percentage"] > 0:
+        #         badge_label = QLabel("🏆")
+        #         badge_label.setFont(QFont("SF Pro Display", 20))
+        #         badge_label.setToolTip("Your best day!")
+        #         right_layout.addWidget(badge_label)
+        #     elif (
+        #         day_data["name"] == worst_day["name"]
+        #         and worst_day["percentage"] < best_day["percentage"]
+        #     ):
+        #         badge_label = QLabel("💡")
+        #         badge_label.setFont(QFont("SF Pro Display", 20))
+        #         badge_label.setToolTip("Room for improvement")
+        #         right_layout.addWidget(badge_label)
 
-            day_layout.addLayout(right_layout)
+        #     day_layout.addLayout(right_layout)
 
-            layout.addWidget(day_container)
+        #     layout.addWidget(day_container)
 
-        # Insights
-        insight_box = QFrame()
-        insight_box.setStyleSheet("""
-            QFrame {
-                background-color: #EEF2FF;
-                border-left: 4px solid #6366F1;
-                border-radius: 12px;
-                padding: 16px;
-            }
-        """)
+        # # Insights
+        # insight_box = QFrame()
+        # insight_box.setStyleSheet("""
+        #     QFrame {
+        #         background-color: #EEF2FF;
+        #         border-left: 4px solid #6366F1;
+        #         border-radius: 12px;
+        #         padding: 16px;
+        #     }
+        # """)
 
-        insight_layout = QVBoxLayout(insight_box)
-        insight_layout.setContentsMargins(16, 12, 16, 12)
-        insight_layout.setSpacing(6)
+        # insight_layout = QVBoxLayout(insight_box)
+        # insight_layout.setContentsMargins(16, 12, 16, 12)
+        # insight_layout.setSpacing(6)
 
-        insight_title = QLabel("💡 Insights")
-        insight_title.setFont(QFont("SF Pro Text", 13, QFont.Bold))
-        insight_title.setStyleSheet("color: #4F46E5;")
-        insight_layout.addWidget(insight_title)
+        # insight_title = QLabel("💡 Insights")
+        # insight_title.setFont(QFont("SF Pro Text", 13, QFont.Bold))
+        # insight_title.setStyleSheet("color: #4F46E5;")
+        # insight_layout.addWidget(insight_title)
 
-        insight_text = QLabel(
-            f"• Your best day is {best_day['name']} ({best_day['percentage']}%)\n"
-            f"• {worst_day['name']} needs attention ({worst_day['percentage']}%)\n"
-            f"• Try scheduling important habits on {best_day['name']}"
-        )
-        insight_text.setFont(QFont("SF Pro Text", 12))
-        insight_text.setStyleSheet("color: #1E40AF;")
-        insight_text.setWordWrap(True)
-        insight_layout.addWidget(insight_text)
+        # insight_text = QLabel(
+        #     f"• Your best day is {best_day['name']} ({best_day['percentage']}%)\n"
+        #     f"• {worst_day['name']} needs attention ({worst_day['percentage']}%)\n"
+        #     f"• Try scheduling important habits on {best_day['name']}"
+        # )
+        # insight_text.setFont(QFont("SF Pro Text", 12))
+        # insight_text.setStyleSheet("color: #1E40AF;")
+        # insight_text.setWordWrap(True)
+        # insight_layout.addWidget(insight_text)
 
-        layout.addWidget(insight_box)
+        # layout.addWidget(insight_box)
 
-        self.content_layout.addWidget(dow_card)
+        # self.content_layout.addWidget(dow_card)
 
     def add_best_worst_habits(self):
         """Best & Worst Performing Habits Section"""
@@ -1976,29 +1385,48 @@ class AnalyticsContentView(QWidget):
         card.setFixedHeight(85)
 
         if is_best:
-            card.setStyleSheet("""
-                QFrame {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                        stop:0 #ECFDF5, stop:1 #D1FAE5);
-                    border-left: 4px solid #10B981;
-                    border-radius: 12px;
-                }
-            """)
+            accent_color = "#10B981"
+            bg_styles = """
+                background-color: #ECFDF5;
+                border: 1px solid #D1FAE5;
+                border-radius: 12px;
+            """
             text_color = "#065F46"
         else:
-            card.setStyleSheet("""
-                QFrame {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                        stop:0 #FEF2F2, stop:1 #FEE2E2);
-                    border-left: 4px solid #EF4444;
-                    border-radius: 12px;
-                }
-            """)
+            accent_color = "#EF4444"
+            bg_styles = """
+                background-color: #FEF2F2;
+                border: 1px solid #FEE2E2;
+                border-radius: 12px;
+            """
             text_color = "#991B1B"
 
+        card.setObjectName("perfCard")
+        card.setStyleSheet(f"""
+            QFrame#perfCard {{ 
+                {bg_styles} 
+            }}
+            QLabel {{
+                border: none;
+                background: transparent;
+            }}
+        """)
+
         card_layout = QHBoxLayout(card)
-        card_layout.setContentsMargins(16, 12, 16, 12)
+        card_layout.setContentsMargins(0, 0, 16, 0)  # 0 margins for accent strip
         card_layout.setSpacing(12)
+
+        # Accent strip (Fixes the bracket glitch)
+        accent_strip = QFrame()
+        accent_strip.setFixedWidth(5)
+        accent_strip.setStyleSheet(f"""
+            QFrame {{
+                background-color: {accent_color};
+                border-top-left-radius: 12px;
+                border-bottom-left-radius: 12px;
+            }}
+        """)
+        card_layout.addWidget(accent_strip)
 
         # Icon
         icon_label = QLabel(icon)
@@ -2097,17 +1525,32 @@ class AnalyticsContentView(QWidget):
         for period in time_periods:
             period_card = QFrame()
             period_card.setFixedHeight(75)
-            period_card.setStyleSheet(f"""
-                QFrame {{
+            period_card.setObjectName("periodCard")
+            period_card.setStyleSheet("""
+                QFrame#periodCard {
                     background-color: #F9FAFB;
-                    border-left: 4px solid {period["color"]};
                     border-radius: 12px;
-                }}
+                    border: none;
+                }
+                QLabel {
+                    border: none;
+                    background: transparent;
+                }
             """)
 
             period_layout = QHBoxLayout(period_card)
-            period_layout.setContentsMargins(16, 12, 16, 12)
+            period_layout.setContentsMargins(0, 0, 16, 0)
             period_layout.setSpacing(12)
+
+            # Accent strip (Fixes bracket glitch)
+            accent_strip = QFrame()
+            accent_strip.setFixedWidth(5)
+            accent_strip.setStyleSheet(
+                "QFrame { background-color: "
+                + period["color"]
+                + "; border-top-left-radius: 12px; border-bottom-left-radius: 12px; }"
+            )
+            period_layout.addWidget(accent_strip)
 
             # Icon
             icon_label = QLabel(period["icon"])
@@ -2148,6 +1591,7 @@ class AnalyticsContentView(QWidget):
         insight_box.setStyleSheet("""
             QFrame {
                 background-color: #EEF2FF;
+                border: 1px solid rgba(99, 102, 241, 0.2);
                 border-radius: 12px;
                 padding: 12px;
             }
@@ -2241,20 +1685,34 @@ class AnalyticsContentView(QWidget):
         for level in difficulty_levels:
             level_card = QFrame()
             level_card.setFixedHeight(75)
+            level_card.setObjectName("levelCard")
             level_card.setStyleSheet("""
-                QFrame {
+                QFrame#levelCard {
                     background-color: #F9FAFB;
                     border-radius: 12px;
+                    border: none;
+                }
+                QLabel {
+                    border: none;
+                    background: transparent;
                 }
             """)
 
             level_layout = QHBoxLayout(level_card)
-            level_layout.setContentsMargins(16, 12, 16, 12)
+            level_layout.setContentsMargins(0, 0, 16, 0)
             level_layout.setSpacing(12)
+
+            # Accent strip (Fixes bracket glitch)
+            accent_strip = QFrame()
+            accent_strip.setFixedWidth(5)
+            accent_strip.setStyleSheet(
+                f"QFrame {{ background-color: {level['color']}; border-top-left-radius: 12px; border-bottom-left-radius: 12px; }}"
+            )
+            level_layout.addWidget(accent_strip)
 
             # Circle
             circle_label = QLabel(level["icon"])
-            circle_label.setFont(QFont("SF Pro Display", 32))
+            circle_label.setFont(QFont("SF Pro Display", 28))
             level_layout.addWidget(circle_label)
 
             # Info
@@ -2285,7 +1743,8 @@ class AnalyticsContentView(QWidget):
         rec_box = QFrame()
         rec_box.setStyleSheet("""
             QFrame {
-                background-color: #FEF3C7;
+                background-color: #FFFBEB;
+                border: 1px solid rgba(245, 158, 11, 0.2);
                 border-radius: 12px;
                 padding: 12px;
             }
@@ -2295,14 +1754,14 @@ class AnalyticsContentView(QWidget):
         rec_layout.setContentsMargins(12, 10, 12, 10)
 
         if hard_count > 0:
-            rec_text = f"💡 Focus on improving 1-2 hard habits at a time. Small wins build momentum!"
+            rec_text = "💡 Focus on improving 1-2 hard habits at a time. Small wins build momentum!"
         elif medium_count > 0:
             rec_text = (
                 f"💡 Great job! Push {medium_count} medium habit(s) to 80%+ completion."
             )
         else:
             rec_text = (
-                f"💡 Excellent! All habits are easy. Consider adding new challenges!"
+                "💡 Excellent! All habits are easy. Consider adding new challenges!"
             )
 
         rec_label = QLabel(rec_text)

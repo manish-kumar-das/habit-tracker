@@ -319,7 +319,7 @@ class StatCard(QFrame):
         self.setObjectName("statCard")
         self.setStyleSheet("""
             QFrame#statCard {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #667eea, stop:0.5 #764ba2, stop:1 #f093fb);
                 border-radius: 24px;
                 border: 1px solid rgba(255, 255, 255, 0.2);
@@ -642,6 +642,7 @@ class AnalyticsContentView(QWidget):
         self.add_graphs_section(habits)
 
         # SECTION 3: Week Comparison (already added)
+        self.content_layout.addSpacing(30)
         self.add_week_comparison_section()
 
         # SECTION 4: Day of Week Analysis

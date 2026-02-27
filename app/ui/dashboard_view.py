@@ -24,6 +24,7 @@ from PySide6.QtGui import (
 from datetime import datetime, timedelta
 from app.services.habit_service import get_habit_service
 from app.services.streak_service import get_streak_service
+from app.services.profile_service import get_profile_service
 
 
 class SimpleCircularProgress(QWidget):
@@ -390,6 +391,7 @@ class ModernDashboard(QWidget):
         self.main_window = parent
         self.habit_service = get_habit_service()
         self.streak_service = get_streak_service()
+        self.profile_service = get_profile_service()
         self.setup_ui()
         self.load_dashboard()
 
@@ -420,10 +422,13 @@ class ModernDashboard(QWidget):
             else "Good evening"
         )
 
-        greeting_label = QLabel(f"{greeting}, Alex")
-        greeting_label.setFont(QFont("SF Pro Display", 30, QFont.Bold))
-        greeting_label.setStyleSheet("color: #111827;")
-        greeting_layout.addWidget(greeting_label)
+        profile = self.profile_service.get_profile()
+        first_name = profile["name"].split()[0] if profile["name"] else "there"
+
+        self.greeting_label = QLabel(f"{greeting}, {first_name}!")
+        self.greeting_label.setFont(QFont("SF Pro Display", 30, QFont.Bold))
+        self.greeting_label.setStyleSheet("color: #111827;")
+        greeting_layout.addWidget(self.greeting_label)
 
         today = datetime.now()
         # date_str = today.strftime("%A, %B %dth")

@@ -359,6 +359,7 @@ class ProfileContentView(QWidget):
         btn_shadow.setBlurRadius(15)
         btn_shadow.setColor(QColor(124, 58, 237, 30))
         self.save_btn.setGraphicsEffect(btn_shadow)
+        self.save_btn.clicked.connect(self.save_profile)
 
         btn_wrapper.addWidget(self.save_btn)
         btn_wrapper.addStretch()

@@ -32,10 +32,8 @@ class SettingCard(QFrame):
         super().__init__(parent)
         self.setup_ui(icon, title, description, widget)
 
-        # Hover animation
-        self.anim = QPropertyAnimation(self, b"pos")
-        self.anim.setDuration(150)
-        self.anim.setEasingCurve(QEasingCurve.OutCubic)
+        # No longer using pos animation as it interferes with layouts and clicks
+        pass
 
     def setup_ui(self, icon, title, description, widget):
         """Setup setting card UI"""
@@ -98,17 +96,9 @@ class SettingCard(QFrame):
             layout.addWidget(widget)
 
     def enterEvent(self, event):
-        self.anim.stop()
-        self.anim.setStartValue(self.pos())
-        self.anim.setEndValue(self.pos() - QPoint(0, 2))
-        self.anim.start()
         super().enterEvent(event)
 
     def leaveEvent(self, event):
-        self.anim.stop()
-        self.anim.setStartValue(self.pos())
-        self.anim.setEndValue(self.pos() + QPoint(0, 2))
-        self.anim.start()
         super().leaveEvent(event)
 
 
@@ -127,8 +117,16 @@ class ToggleSwitch(QCheckBox):
         self.anim.setDuration(200)
         self.anim.setEasingCurve(QEasingCurve.InOutCubic)
 
-        # Hide default indicator
-        self.setStyleSheet("QCheckBox::indicator { width: 0px; height: 0px; }")
+        # Ensure the whole widget is clickable by making the indicator cover it
+        # but remain invisible (we paint it ourselves in paintEvent)
+        self.setStyleSheet("""
+            QCheckBox::indicator {
+                width: 60px;
+                height: 32px;
+                background: transparent;
+                border: none;
+            }
+        """)
 
     def nextCheckState(self):
         super().nextCheckState()

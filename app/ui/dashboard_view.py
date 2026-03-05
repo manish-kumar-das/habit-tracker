@@ -2,6 +2,7 @@
 Premium Dashboard View - ALL ISSUES FIXED
 """
 
+import os
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -11,6 +12,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QScrollArea,
     QGraphicsDropShadowEffect,
+    QMessageBox,
 )
 from PySide6.QtCore import Qt, QPropertyAnimation, QRectF
 from PySide6.QtGui import (
@@ -106,6 +108,9 @@ class HabitCard(QFrame):
         self.is_completed = is_completed
         self.parent_view = parent
         self.habit_service = get_habit_service()
+        from app.services.streak_service import get_streak_service
+
+        self.streak_service = get_streak_service()
 
         self.setObjectName("habitCard")
         self.setFixedHeight(92)
@@ -144,9 +149,60 @@ class HabitCard(QFrame):
         subtitle.setStyleSheet("color: #9CA3AF;")
 
         text_layout.addWidget(name_label)
+        text_layout.addWidget(subtitle)
 
         layout.addLayout(text_layout)
         layout.addStretch()
+
+        # ACTION BUTTONS (Edit/Delete)
+        actions_layout = QHBoxLayout()
+        actions_layout.setSpacing(8)
+
+        self.edit_btn = QPushButton("Edit")
+        self.edit_btn.setFixedHeight(32)
+        self.edit_btn.setMinimumWidth(60)
+        self.edit_btn.setFont(QFont("SF Pro Text", 12, QFont.Medium))
+        self.edit_btn.setCursor(Qt.PointingHandCursor)
+        self.edit_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #F8FAFC;
+                color: #64748B;
+                border: 1px solid #E2E8F0;
+                border-radius: 10px;
+                padding: 0px 12px;
+            }
+            QPushButton:hover {
+                background-color: #F1F5F9;
+                color: #334155;
+            }
+        """)
+        self.edit_btn.clicked.connect(self.edit_habit)
+
+        self.delete_btn = QPushButton("Delete")
+        self.delete_btn.setFixedHeight(32)
+        self.delete_btn.setMinimumWidth(70)
+        self.delete_btn.setFont(QFont("SF Pro Text", 12, QFont.Medium))
+        self.delete_btn.setCursor(Qt.PointingHandCursor)
+        self.delete_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #F8FAFC;
+                color: #64748B;
+                border: 1px solid #E2E8F0;
+                border-radius: 10px;
+                padding: 0px 12px;
+            }
+            QPushButton:hover {
+                background-color: #FEF2F2;
+                color: #DC2626;
+                border: 1px solid #FEE2E2;
+            }
+        """)
+        self.delete_btn.clicked.connect(self.delete_confirm)
+
+        actions_layout.addWidget(self.edit_btn)
+        actions_layout.addWidget(self.delete_btn)
+
+        layout.addLayout(actions_layout)
 
         # Button
         self.button = QPushButton()
@@ -225,6 +281,65 @@ class HabitCard(QFrame):
 
         except Exception as e:
             print("Error:", e)
+
+    def edit_habit(self):
+        """Open the Edit Habit Dialog"""
+        from app.ui.edit_habit_dialog import EditHabitDialog
+
+        dialog = EditHabitDialog(self.habit, self)
+        if dialog.exec_():
+            if self.parent_view and hasattr(self.parent_view, "load_dashboard"):
+                self.parent_view.load_dashboard()
+
+    def delete_confirm(self):
+        """Show delete confirmation dialog"""
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Delete Habit")
+        msg.setText(f"Move '{self.habit.name}' to trash?")
+        msg.setInformativeText("This habit will no longer show up on your dashboard.")
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msg.setDefaultButton(QMessageBox.No)
+        msg.setIcon(QMessageBox.Question)
+
+        # Premium styling for QMessageBox
+        msg.setStyleSheet("""
+            QMessageBox {
+                background-color: #FFFFFF;
+                border-radius: 20px;
+            }
+            QLabel {
+                color: #1F2937;
+                font-size: 14px;
+            }
+            QPushButton {
+                background-color: #F3F4F6;
+                color: #374151;
+                border: 1px solid #D1D5DB;
+                border-radius: 8px;
+                padding: 6px 20px;
+                min-width: 80px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #E5E7EB;
+            }
+            QPushButton[text="&Yes"] {
+                background-color: #EF4444;
+                color: white;
+                border: none;
+            }
+            QPushButton[text="&Yes"]:hover {
+                background-color: #DC2626;
+            }
+        """)
+
+        if msg.exec_() == QMessageBox.Yes:
+            try:
+                self.habit_service.hard_delete_habit(self.habit.id, save_to_trash=True)
+                if self.parent_view and hasattr(self.parent_view, "load_dashboard"):
+                    self.parent_view.load_dashboard()
+            except Exception as e:
+                print(f"Delete Error: {e}")
 
     # Styles
     def default_style(self):
@@ -381,6 +496,76 @@ class WeekDayCard(QWidget):
         shadow.setOffset(0, 10)
         shadow.setColor(QColor(0, 0, 0, 35))
         card.setGraphicsEffect(shadow)
+
+
+class HabitEmptyState(QFrame):
+    """Modern Empty State placeholder for habits section"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMinimumHeight(280)
+        self.setCursor(Qt.ArrowCursor)
+        self.setStyleSheet("""
+            QFrame {
+                background: transparent;
+                border: 2px dashed #E5E7EB;
+                border-radius: 22px;
+            }
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(40, 40, 40, 40)
+        layout.setAlignment(Qt.AlignCenter)
+        layout.setSpacing(12)
+
+        # Icon Container (Target with dart)
+        icon_label = QLabel("🎯")
+        icon_label.setFont(
+            QFont("Segoe UI Emoji", 48)
+            if os.name == "nt"
+            else QFont("noto color emoji", 48)
+        )
+        # Fallback to generic font if specific ones aren't available
+        if icon_label.font().family() == "MS Shell Dlg 2":
+            icon_label.setFont(QFont("SF Pro Display", 48))
+
+        icon_label.setStyleSheet("border: none; background: transparent;")
+        layout.addWidget(icon_label, alignment=Qt.AlignCenter)
+
+        # Title
+        title = QLabel("No habits for today")
+        title.setFont(QFont("SF Pro Display", 22, QFont.Bold))
+        title.setStyleSheet("color: #111827; border: none; background: transparent;")
+        layout.addWidget(title, alignment=Qt.AlignCenter)
+
+        # Subtitle
+        desc = QLabel("Ready to start a new streak? Create your first habit!")
+        desc.setFont(QFont("SF Pro Text", 14))
+        desc.setStyleSheet("color: #6B7280; border: none; background: transparent;")
+        desc.setAlignment(Qt.AlignCenter)
+        layout.addWidget(desc, alignment=Qt.AlignCenter)
+
+        # Action Button
+        self.create_btn = QPushButton("+ New Habit")
+        self.create_btn.setFixedSize(160, 48)
+        self.create_btn.setFont(QFont("SF Pro Text", 13, QFont.Bold))
+        self.create_btn.setCursor(Qt.PointingHandCursor)
+        self.create_btn.setGraphicsEffect(None)
+        self.create_btn.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #667eea, stop:1 #764ba2);
+                color: #FFFFFF;
+                border: none;
+                border-radius: 12px;
+                margin-top: 10px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #5568d3, stop:1 #6a4191);
+            }
+        """)
+        layout.addWidget(self.create_btn, alignment=Qt.AlignCenter)
 
 
 class ModernDashboard(QWidget):
@@ -707,6 +892,9 @@ class ModernDashboard(QWidget):
             }
         """)
         milestone_card.setObjectName("streakCard")
+        milestone_card.setMinimumWidth(
+            380
+        )  # Ensure enough space for large numbers (100+)
 
         streak_card_shadow = QGraphicsDropShadowEffect()
         streak_card_shadow.setBlurRadius(40)
@@ -734,19 +922,19 @@ class ModernDashboard(QWidget):
         header_row.addWidget(streak_title)
         header_row.addStretch()
 
-        # On-fire pill badge (shown when streak > 0)
-        self.fire_badge = QLabel("  🔥 On Fire!  ")
+        # On-fire pill badge (shown even for 0 to maintain consistent layout)
+        self.fire_badge = QLabel("  No Streak  ")
         self.fire_badge.setFont(QFont("SF Pro Text", 11, QFont.Bold))
         self.fire_badge.setStyleSheet("""
             QLabel {
                 background: rgba(255, 255, 255, 0.22);
                 color: #FFFFFF;
                 border-radius: 10px;
-                padding: 2px 10px;
+                padding: 2px 12px;
                 border: 1px solid rgba(255, 255, 255, 0.40);
             }
         """)
-        self.fire_badge.setVisible(False)
+        self.fire_badge.setVisible(True)
         header_row.addWidget(self.fire_badge)
 
         ms_layout.addLayout(header_row)
@@ -762,13 +950,13 @@ class ModernDashboard(QWidget):
         ms_layout.addWidget(self.streak_label)
 
         # ── "days" sub-label ──
-        days_unit_label = QLabel("days in a row")
-        days_unit_label.setFont(QFont("SF Pro Text", 13, QFont.DemiBold))
-        days_unit_label.setStyleSheet(
+        self.days_unit_label = QLabel("days in a row")
+        self.days_unit_label.setFont(QFont("SF Pro Text", 13, QFont.DemiBold))
+        self.days_unit_label.setStyleSheet(
             "color: rgba(255,255,255,0.45); background: transparent; border: none;"
         )
-        days_unit_label.setAlignment(Qt.AlignCenter)
-        ms_layout.addWidget(days_unit_label)
+        self.days_unit_label.setAlignment(Qt.AlignCenter)
+        ms_layout.addWidget(self.days_unit_label)
 
         ms_layout.addSpacing(10)
 
@@ -854,6 +1042,13 @@ class ModernDashboard(QWidget):
             self.best_streak_label.setText("0 days")
             self.fire_badge.setVisible(False)
             self.streak_desc.setText("Start your first streak today!")
+
+            # Add Empty State Skeleton
+            empty_state = HabitEmptyState(self)
+            empty_state.create_btn.clicked.connect(self.show_add_habit)
+            self.habits_list.addWidget(empty_state)
+            self.habits_list.addStretch()
+
             self.load_weekly_activity()
             return
 
@@ -910,6 +1105,16 @@ class ModernDashboard(QWidget):
 
         self.streak_label.setText(str(max_streak))
 
+        # Adjust font size for large streaks
+        if max_streak >= 100:
+            self.streak_label.setFont(QFont("SF Pro Display", 56, QFont.Black))
+        else:
+            self.streak_label.setFont(QFont("SF Pro Display", 68, QFont.Black))
+
+        self.days_unit_label.setText(
+            "day in a row" if max_streak == 1 else "days in a row"
+        )
+
         # Calculate best (longest) streak across all habits
         best_streak = 0
         for habit in habits:
@@ -923,8 +1128,31 @@ class ModernDashboard(QWidget):
             f"{best_streak} day{'' if best_streak == 1 else 's'}"
         )
 
-        # Show / hide fire badge
-        self.fire_badge.setVisible(max_streak > 0)
+        # Update fire badge (streak showing tab)
+        if max_streak > 0:
+            self.fire_badge.setText("  🔥 On Fire!  ")
+            self.fire_badge.setStyleSheet("""
+                QLabel {
+                    background: rgba(255, 255, 255, 0.22);
+                    color: #FFFFFF;
+                    border-radius: 10px;
+                    padding: 2px 12px;
+                    border: 1px solid rgba(255, 255, 255, 0.45);
+                    font-weight: bold;
+                }
+            """)
+        else:
+            self.fire_badge.setText("  Steady  ")
+            self.fire_badge.setStyleSheet("""
+                QLabel {
+                    background: rgba(255, 255, 255, 0.1);
+                    color: rgba(255, 255, 255, 0.6);
+                    border-radius: 10px;
+                    padding: 2px 12px;
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                }
+            """)
+        self.fire_badge.setVisible(True)
 
         # Dynamic motivational text by milestone
         if max_streak == 0:

@@ -7,18 +7,11 @@ from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QLineEdit,
-    QComboBox,
-    QMenuBar,
-    QMenu,
-    QStatusBar,
     QMessageBox,
     QFileDialog,
 )
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QAction, QFont
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont
 from app.services.habit_service import get_habit_service
 from app.services.streak_service import get_streak_service
 from app.services.stats_service import get_stats_service
@@ -119,15 +112,30 @@ class MainWindow(QMainWindow):
                 item.widget().deleteLater()
 
     def show_add_habit_dialog(self):
-        """Show add habit dialog"""
+        """Show add habit dialog and refresh current view if successful"""
         from app.ui.add_habit_dialog import AddHabitDialog
 
         dialog = AddHabitDialog(self)
-        if dialog.exec():
-            # Reload complete UI
+        result = dialog.exec()
+
+        if result:
+            # Refresh current content view if it has a load method
+            if hasattr(self, "content_layout") and self.content_layout.count() > 0:
+                item = self.content_layout.itemAt(0)
+                if item and item.widget():
+                    widget = item.widget()
+                    # Try various load methods common in our views
+                    for method in ["load_dashboard", "load_data", "load_habits"]:
+                        if hasattr(widget, method):
+                            getattr(widget, method)()
+                            break
+
+            # Reload complete UI (if it exists)
             if hasattr(self, "complete_ui"):
                 self.complete_ui.load_data()
             self.update_status_bar()
+
+        return result
 
     def show_analytics(self):
         """Show analytics in content area"""
@@ -261,15 +269,12 @@ class MainWindow(QMainWindow):
 
     def update_status_bar(self):
         """Update status bar with current stats"""
-        habits = self.habit_service.get_all_habits()
-        total = len(habits)
-        completed_today = sum(
-            1 for h in habits if self.habit_service.is_habit_completed_today(h.id)
-        )
+        _ = self.habit_service.get_all_habits()
+        # Stats logic can be expanded here if needed
 
     def apply_theme(self, theme_name):
         """Apply theme to main window"""
-        from app.utils.themes import apply_theme, get_dark_colors, get_light_colors
+        from app.utils.themes import get_dark_colors, get_light_colors
 
         if theme_name == "light":
             colors = get_light_colors()

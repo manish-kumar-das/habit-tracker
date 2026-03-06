@@ -160,6 +160,20 @@ def create_profile_table(cursor):
         """)
 
 
+def create_notifications_table(cursor):
+    """Create notifications table"""
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            message TEXT NOT NULL,
+            type TEXT DEFAULT 'reminder',
+            is_read INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+
 def create_tables(cursor):
     """Create all database tables"""
     create_habits_table(cursor)
@@ -169,3 +183,4 @@ def create_tables(cursor):
     create_goals_table(cursor)
     create_achievements_table(cursor)
     create_profile_table(cursor)
+    create_notifications_table(cursor)

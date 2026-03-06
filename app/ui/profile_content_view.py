@@ -1,6 +1,6 @@
 """
-Profile Content View - Final Premium Polished Edition
-Large, substantial cards with bold typography and perfect structural integrity.
+Profile Content View — Clean Single-Page SaaS Dashboard
+No scroll. Fits in one window. Minimal & professional.
 """
 
 from PySide6.QtWidgets import (
@@ -14,141 +14,97 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QMessageBox,
     QGraphicsDropShadowEffect,
-    QProgressBar,
+    QSizePolicy,
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont, QColor
 from app.services.habit_service import get_habit_service
 from app.services.streak_service import get_streak_service
 from app.services.profile_service import get_profile_service
 
 
-class ElevatedShadow(QGraphicsDropShadowEffect):
-    def __init__(self, parent=None, level=1):
-        super().__init__(parent)
-        self.set_level(level)
-
-    def set_level(self, level):
-        if level == 1:
-            self.setBlurRadius(12)
-            self.setOffset(0, 4)
-            self.setColor(QColor(0, 0, 0, 10))
-        elif level == 2:
-            self.setBlurRadius(24)
-            self.setOffset(0, 8)
-            self.setColor(QColor(0, 0, 0, 15))
-        elif level == 3:  # Minimal/Soft
-            self.setBlurRadius(8)
-            self.setOffset(0, 2)
-            self.setColor(QColor(0, 0, 0, 8))
+def _shadow(parent=None, blur=14, y=3, alpha=10):
+    s = QGraphicsDropShadowEffect(parent)
+    s.setBlurRadius(blur)
+    s.setOffset(0, y)
+    s.setColor(QColor(0, 0, 0, alpha))
+    return s
 
 
-class XPProgressBar(QProgressBar):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setFixedHeight(8)
-        self.setMinimumWidth(200)
-        self.setTextVisible(False)
-        self.setStyleSheet("""
-            QProgressBar {
-                background-color: #F1F5F9;
-                border-radius: 4px;
-                border: none;
-            }
-            QProgressBar::chunk {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #7C3AED, stop:1 #A855F7);
-                border-radius: 4px;
-            }
-        """)
-
-
+# ═══════════════════════════════════════════════════════════
+#  Stat Card
+# ═══════════════════════════════════════════════════════════
 class StatCard(QFrame):
-    """Refined SaaS-style stat card with horizontal layout"""
-
-    def __init__(self, icon, value, label, color, parent=None):
+    def __init__(self, icon, value, label, accent, parent=None):
         super().__init__(parent)
-        self.setFixedHeight(120)
-        self.setMinimumWidth(260)
-        self.color = color
-
+        self.accent = accent
         self.setObjectName("statCard")
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self._default_style()
+        self.setGraphicsEffect(_shadow(self, blur=12, y=3, alpha=8))
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(20, 20, 20, 20)
+        root.setSpacing(8)
+
+        # Icon circle
+        icon_bg = QFrame()
+        icon_bg.setFixedSize(44, 44)
+        icon_bg.setStyleSheet(f"""
+            background-color: {accent}14;
+            border-radius: 12px; border: none;
+        """)
+        ic_lay = QVBoxLayout(icon_bg)
+        ic_lay.setContentsMargins(0, 0, 0, 0)
+        ic_lay.setAlignment(Qt.AlignCenter)
+        ic_lbl = QLabel(icon)
+        ic_lbl.setFont(QFont("SF Pro Display", 20))
+        ic_lbl.setStyleSheet("background:transparent; border:none;")
+        ic_lay.addWidget(ic_lbl)
+        root.addWidget(icon_bg)
+
+        root.addStretch()
+
+        # Value
+        self.val_lbl = QLabel(value)
+        self.val_lbl.setFont(QFont("SF Pro Display", 26, QFont.Bold))
+        self.val_lbl.setStyleSheet("color:#111827; background:transparent; border:none;")
+        root.addWidget(self.val_lbl)
+
+        # Label
+        cap = QLabel(label.upper())
+        cap.setFont(QFont("Inter", 10, QFont.DemiBold))
+        cap.setStyleSheet("color:#6B7280; letter-spacing:0.6px; background:transparent; border:none;")
+        root.addWidget(cap)
+
+    def _default_style(self):
         self.setStyleSheet("""
-            #statCard {
+            QFrame#statCard {
                 background-color: #FFFFFF;
-                border: 1px solid #F1F5F9;
-                border-radius: 20px;
+                border: 1px solid #E5E7EB;
+                border-radius: 16px;
             }
         """)
 
-        # Level 1 Shadow
-        self.shadow = ElevatedShadow(self, level=1)
-        self.setGraphicsEffect(self.shadow)
-
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(20, 16, 20, 16)
-        layout.setSpacing(20)
-
-        # Icon with tinted background
-        self.icon_bg = QFrame()
-        self.icon_bg.setFixedSize(64, 64)
-        self.icon_bg.setStyleSheet(f"""
-            background-color: {color}10;
-            border-radius: 16px;
-        """)
-        icon_layout = QVBoxLayout(self.icon_bg)
-        icon_layout.setContentsMargins(0, 0, 0, 0)
-        icon_layout.setAlignment(Qt.AlignCenter)
-
-        icon_lbl = QLabel(icon)
-        icon_lbl.setFont(QFont("SF Pro Display", 28))
-        icon_layout.addWidget(icon_lbl)
-        layout.addWidget(self.icon_bg)
-
-        # Content Column
-        content_col = QVBoxLayout()
-        content_col.setSpacing(2)
-        content_col.setAlignment(Qt.AlignVCenter)
-
-        self.value_label = QLabel(value)
-        self.value_label.setFont(QFont("SF Pro Display", 36, QFont.Bold))
-        self.value_label.setStyleSheet("color: #0F172A; background: transparent;")
-        content_col.addWidget(self.value_label)
-
-        self.label_label = QLabel(label.upper())
-        self.label_label.setFont(QFont("Inter", 11, QFont.Bold))
-        self.label_label.setStyleSheet("color: #64748B; letter-spacing: 0.5px;")
-        content_col.addWidget(self.label_label)
-
-        layout.addLayout(content_col)
-        layout.addStretch()
-
-    def enterEvent(self, event):
-        self.shadow.set_level(2)
+    def enterEvent(self, ev):
         self.setStyleSheet(f"""
-            #statCard {{
-                background-color: {self.color}05;
-                border: 1px solid {self.color}30;
-                border-radius: 20px;
+            QFrame#statCard {{
+                background-color: #FFFFFF;
+                border: 1px solid {self.accent}40;
+                border-radius: 16px;
             }}
         """)
-        super().enterEvent(event)
+        super().enterEvent(ev)
 
-    def leaveEvent(self, event):
-        self.shadow.set_level(1)
-        self.setStyleSheet("""
-            #statCard {
-                background-color: #FFFFFF;
-                border: 1px solid #F1F5F9;
-                border-radius: 20px;
-            }
-        """)
-        super().leaveEvent(event)
+    def leaveEvent(self, ev):
+        self._default_style()
+        super().leaveEvent(ev)
 
 
+# ═══════════════════════════════════════════════════════════
+#  Main Profile View — single page, no scroll
+# ═══════════════════════════════════════════════════════════
 class ProfileContentView(QWidget):
-    """Polished Profile View - Substantial Cards & Fixed Layout"""
-
     def __init__(self, parent=None):
         super().__init__(parent)
         self.main_window = parent
@@ -159,328 +115,248 @@ class ProfileContentView(QWidget):
         self.load_profile_data()
 
     def setup_ui(self):
-        self.setStyleSheet("background-color: #F5F7FA;")
+        self.setStyleSheet("background-color: #F9FAFB;")
 
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(64, 48, 64, 64)
-        main_layout.setSpacing(48)
+        main = QVBoxLayout(self)
+        main.setContentsMargins(40, 28, 40, 28)
+        main.setSpacing(16)
 
-        # 1. PREMIUM HEADER CARD
-        header_card = QFrame()
-        header_card.setFixedHeight(140)
-        header_card.setStyleSheet("""
-            QFrame {
+        # ═══════════════════════════════════════════════
+        # 1. HEADER — Avatar + Name only
+        # ═══════════════════════════════════════════════
+        header = QFrame()
+        header.setObjectName("headerCard")
+        header.setStyleSheet("""
+            QFrame#headerCard {
                 background-color: #FFFFFF;
+                border: 1px solid #E5E7EB;
                 border-radius: 20px;
-                border: 1px solid #F1F5F9;
+            }
+            QLabel { background:transparent; border:none; }
+        """)
+        header.setGraphicsEffect(_shadow(header))
+
+        h_lay = QHBoxLayout(header)
+        h_lay.setContentsMargins(32, 24, 32, 24)
+        h_lay.setSpacing(20)
+
+        # Avatar — 90px
+        av = QFrame()
+        av.setFixedSize(90, 90)
+        av.setStyleSheet("""
+            QFrame {
+                background-color: #F3F4F6;
+                border: 2px solid #E5E7EB;
+                border-radius: 45px;
             }
         """)
-        header_shadow = ElevatedShadow(header_card, level=1)
-        header_card.setGraphicsEffect(header_shadow)
+        av.setGraphicsEffect(_shadow(av, blur=10, y=3, alpha=12))
+        av_l = QVBoxLayout(av)
+        av_l.setContentsMargins(0, 0, 0, 0)
+        av_l.setAlignment(Qt.AlignCenter)
+        av_icon = QLabel("👤")
+        av_icon.setFont(QFont("SF Pro Display", 42))
+        av_icon.setAlignment(Qt.AlignCenter)
+        av_l.addWidget(av_icon)
+        h_lay.addWidget(av)
 
-        header_layout = QHBoxLayout(header_card)
-        header_layout.setContentsMargins(40, 0, 40, 0)
-        header_layout.setSpacing(24)
-
-        # Avatar with subtle neutral border
-        avatar_container = QFrame()
-        avatar_container.setFixedSize(92, 92)
-        avatar_container.setStyleSheet("""
-            background-color: #FFFFFF;
-            border-radius: 46px;
-            border: 1px solid #E5E7EB;
-        """)
-        avatar_shadow = ElevatedShadow(avatar_container, level=3)
-        avatar_container.setGraphicsEffect(avatar_shadow)
-
-        av_inner_layout = QVBoxLayout(avatar_container)
-        av_inner_layout.setContentsMargins(0, 0, 0, 0)
-        av_inner_layout.setAlignment(Qt.AlignCenter)
-
-        avatar_lbl = QLabel("👤")
-        avatar_lbl.setFont(QFont("SF Pro Display", 48))
-        avatar_lbl.setStyleSheet("color: #7C3AED; background: transparent;")
-        av_inner_layout.addWidget(avatar_lbl)
-
-        header_layout.addWidget(avatar_container)
-
-        # Name and secondary info
-        info_col = QVBoxLayout()
-        info_col.setSpacing(12)
-        info_col.setAlignment(Qt.AlignVCenter)
-
-        # Name Typography
-        self.name_header = QLabel("Loading...")
+        # Name
+        self.name_header = QLabel("Loading…")
         self.name_header.setFont(QFont("SF Pro Display", 30, QFont.Bold))
-        self.name_header.setStyleSheet(
-            "color: #0F172A; letter-spacing: 0.5px; background: transparent;"
-        )
-        info_col.addWidget(self.name_header)
+        self.name_header.setStyleSheet("color:#111827; letter-spacing:-0.3px;")
+        h_lay.addWidget(self.name_header, stretch=1)
 
-        # Stats Column (XP & Bar)
-        stats_sub_col = QVBoxLayout()
-        stats_sub_col.setSpacing(8)
+        main.addWidget(header)
 
-        xp_text_layout = QHBoxLayout()
-        level_lbl = QLabel("Level 3")
-        level_lbl.setFont(QFont("Inter", 14, QFont.DemiBold))
-        level_lbl.setStyleSheet("color: #4B5563;")
+        # ═══════════════════════════════════════════════
+        # 2. STAT CARDS ROW
+        # ═══════════════════════════════════════════════
+        self.stats_row = QHBoxLayout()
+        self.stats_row.setSpacing(12)
+        main.addLayout(self.stats_row)
 
-        sep = QLabel("•")
-        sep.setStyleSheet("color: #94A3B8; margin: 0 4px;")
-
-        xp_lbl = QLabel("1,240 Total XP")
-        xp_lbl.setFont(QFont("Inter", 14))
-        xp_lbl.setStyleSheet("color: #4B5563;")
-
-        xp_text_layout.addWidget(level_lbl)
-        xp_text_layout.addWidget(sep)
-        xp_text_layout.addWidget(xp_lbl)
-        xp_text_layout.addStretch()
-
-        stats_sub_col.addLayout(xp_text_layout)
-
-        # Progress Bar aligned with percentage
-        xp_row = QHBoxLayout()
-        xp_row.setSpacing(16)
-
-        self.xp_bar = XPProgressBar()
-        self.xp_bar.setFixedHeight(8)
-        self.xp_bar.setValue(65)
-        xp_row.addWidget(self.xp_bar)
-
-        self.xp_percent = QLabel("65%")
-        self.xp_percent.setFont(QFont("Inter", 12, QFont.Bold))
-        self.xp_percent.setStyleSheet("color: #7C3AED;")
-        xp_row.addWidget(self.xp_percent)
-
-        stats_sub_col.addLayout(xp_row)
-        info_col.addLayout(stats_sub_col)
-
-        header_layout.addLayout(info_col)
-        header_layout.addStretch()
-
-        # Streak Badge (Aligned with Info)
-        streak_badge = QFrame()
-        streak_badge.setFixedHeight(32)
-        streak_badge.setCursor(Qt.PointingHandCursor)
-        streak_badge.setStyleSheet("""
-            QFrame {
-                background-color: #F5F3FF;
-                border: 1px solid #DDD6FE;
-                border-radius: 16px;
-            }
-            QFrame:hover {
-                background-color: #EDE9FE;
-                border: 1px solid #C4B5FD;
-            }
-        """)
-        badge_layout = QHBoxLayout(streak_badge)
-        badge_layout.setContentsMargins(12, 0, 12, 0)
-
-        badge_text = QLabel("🔥 3 DAY STREAK")
-        badge_text.setFont(QFont("Inter", 10, QFont.Bold))
-        badge_text.setStyleSheet("color: #7C3AED; letter-spacing: 0.5px;")
-        badge_layout.addWidget(badge_text)
-
-        header_layout.addWidget(streak_badge, alignment=Qt.AlignVCenter)
-
-        main_layout.addWidget(header_card)
-
-        # 2. STATS ROW
-        self.stats_hlayout = QHBoxLayout()
-        self.stats_hlayout.setSpacing(24)
-        main_layout.addLayout(self.stats_hlayout)
-
-        # 3. ACCOUNT SETTINGS CARD
-        settings_card = QFrame()
-        settings_card.setStyleSheet("""
-            QFrame {
+        # ═══════════════════════════════════════════════
+        # 3. ACCOUNT SETTINGS
+        # ═══════════════════════════════════════════════
+        form = QFrame()
+        form.setObjectName("formCard")
+        form.setStyleSheet("""
+            QFrame#formCard {
                 background-color: #FFFFFF;
+                border: 1px solid #E5E7EB;
                 border-radius: 20px;
-                border: 1px solid #F1F5F9;
             }
+            QLabel { background:transparent; border:none; }
         """)
-        settings_shadow = ElevatedShadow(settings_card, level=1)
-        settings_card.setGraphicsEffect(settings_shadow)
+        form.setGraphicsEffect(_shadow(form))
 
-        card_layout = QVBoxLayout(settings_card)
-        card_layout.setContentsMargins(40, 40, 40, 40)
-        card_layout.setSpacing(24)
+        f_lay = QVBoxLayout(form)
+        f_lay.setContentsMargins(32, 28, 32, 28)
+        f_lay.setSpacing(16)
 
-        # Header
         title = QLabel("Account Settings")
         title.setFont(QFont("SF Pro Display", 22, QFont.DemiBold))
-        title.setStyleSheet("color: #0F172A;")
-        card_layout.addWidget(title)
+        title.setStyleSheet("color:#111827;")
+        f_lay.addWidget(title)
 
-        # We'll rely on spacing instead of a divider for a more minimal production look
-        card_layout.addSpacing(8)
-
-        # Input Fields
+        # Input fields
         self.inputs = {}
-        input_container = QVBoxLayout()
-        input_container.setSpacing(16)
+        self.inputs["name"] = self._add_field("Full Display Name", "👤", f_lay)
+        self.inputs["email"] = self._add_field("Email Address", "📧", f_lay)
+        self.inputs["bio"] = self._add_field("Short Bio", "📝", f_lay, multiline=True)
 
-        self.inputs["name"] = self._add_input(
-            "Full Display Name", "👤", input_container
-        )
-        self.inputs["email"] = self._add_input("Email Address", "📧", input_container)
-        self.inputs["bio"] = self._add_input(
-            "Short Bio", "📝", input_container, multiline=True
-        )
-
-        card_layout.addLayout(input_container)
-
-        # Save Button
-        btn_wrapper = QHBoxLayout()
-        btn_wrapper.addStretch()
+        # Save button
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
 
         self.save_btn = QPushButton("Save Changes")
-        self.save_btn.setFixedWidth(240)
-        self.save_btn.setFixedHeight(50)
-        self.save_btn.setFont(QFont("Inter", 14, QFont.Bold))
+        self.save_btn.setFixedWidth(200)
+        self.save_btn.setFixedHeight(44)
+        self.save_btn.setFont(QFont("Inter", 13, QFont.Bold))
         self.save_btn.setCursor(Qt.PointingHandCursor)
         self.save_btn.setStyleSheet("""
             QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
                     stop:0 #7C3AED, stop:1 #6D28D9);
-                color: white;
-                border-radius: 25px;
-                border: none;
+                color: #FFFFFF; border: none; border-radius: 22px;
             }
             QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
                     stop:0 #8B5CF6, stop:1 #7C3AED);
-                margin-top: -2px;
             }
         """)
-        btn_shadow = ElevatedShadow(self.save_btn, level=1)
-        btn_shadow.setBlurRadius(15)
-        btn_shadow.setColor(QColor(124, 58, 237, 30))
-        self.save_btn.setGraphicsEffect(btn_shadow)
         self.save_btn.clicked.connect(self.save_profile)
+        btn_row.addWidget(self.save_btn)
+        btn_row.addStretch()
+        f_lay.addLayout(btn_row)
 
-        btn_wrapper.addWidget(self.save_btn)
-        btn_wrapper.addStretch()
+        main.addWidget(form, stretch=1)
 
-        card_layout.addLayout(btn_wrapper)
-        main_layout.addWidget(settings_card)
-        main_layout.addStretch()
+    # ─── field builder ───────────────────────────────
+    def _add_field(self, label_text, icon, parent_layout, multiline=False):
+        group = QVBoxLayout()
+        group.setSpacing(4)
 
-    def _add_input(self, label, icon, parent_layout, multiline=False):
-        v_box = QVBoxLayout()
-        v_box.setSpacing(6)
-
-        lbl = QLabel(label.upper())
-        lbl.setFont(QFont("Inter", 11, QFont.Bold))  # Increased contrast
-        lbl.setStyleSheet("color: #475569; letter-spacing: 0.5px;")
-        v_box.addWidget(lbl)
+        lbl = QLabel(label_text.upper())
+        lbl.setFont(QFont("Inter", 10, QFont.Bold))
+        lbl.setStyleSheet("color:#6B7280; letter-spacing:0.5px;")
+        group.addWidget(lbl)
 
         container = QFrame()
+        container.setObjectName("inputRow")
         container.setStyleSheet("""
-            QFrame {
+            QFrame#inputRow {
                 background-color: #FFFFFF;
-                border: 1px solid #E4E7EC;
+                border: 1.5px solid #E5E7EB;
                 border-radius: 12px;
             }
-            QFrame:hover {
-                border: 1px solid #CBD5E1;
-            }
-            QFrame:focus-within {
-                border: 2px solid #7C3AED;
-            }
+            QFrame#inputRow:hover { border: 1.5px solid #D1D5DB; }
         """)
 
-        c_layout = QHBoxLayout(container)
-        c_layout.setContentsMargins(16, 4, 16, 4)
+        row = QHBoxLayout(container)
+        row.setContentsMargins(12, 2, 12, 2)
+        row.setSpacing(8)
 
-        icon_lbl = QLabel(icon)
-        icon_lbl.setFont(QFont("SF Pro Display", 16))
-        icon_lbl.setStyleSheet("color: #94A3B8;")
-        c_layout.addWidget(icon_lbl)
+        ic = QLabel(icon)
+        ic.setFont(QFont("SF Pro Display", 15))
+        ic.setStyleSheet("color:#9CA3AF;")
+        ic.setFixedWidth(22)
+        row.addWidget(ic)
 
         if multiline:
             edit = QTextEdit()
-            edit.setFixedHeight(96)
+            edit.setFixedHeight(70)
             edit.setStyleSheet(
-                "border: none; background: transparent; font-size: 15px; color: #1E293B;"
+                "border:none; background:transparent; font-size:14px; color:#1E293B; font-family:Inter;"
             )
         else:
             edit = QLineEdit()
-            edit.setFixedHeight(46)
+            edit.setFixedHeight(40)
             edit.setStyleSheet(
-                "border: none; background: transparent; font-size: 15px; color: #1E293B;"
+                "border:none; background:transparent; font-size:14px; color:#1E293B; font-family:Inter;"
             )
 
-        c_layout.addWidget(edit)
-        v_box.addWidget(container)
-        parent_layout.addLayout(v_box)
+        row.addWidget(edit, stretch=1)
+        group.addWidget(container)
+        parent_layout.addLayout(group)
         return edit
 
+    # ─── data ────────────────────────────────────────
     def load_profile_data(self):
         profile = self.profile_service.get_profile()
         self.name_header.setText(profile["name"])
         self.inputs["name"].setText(profile["name"])
         self.inputs["email"].setText(profile["email"])
         self.inputs["bio"].setText(profile["bio"])
-        self.load_statistics()
+        self._refresh_stats()
 
-    def load_statistics(self):
-        while self.stats_hlayout.count():
-            item = self.stats_hlayout.takeAt(0)
+    def _refresh_stats(self):
+        habits = self.habit_service.get_all_habits()
+
+        total_habits = len(habits)
+        total_xp = sum(
+            len(self.habit_service.get_habit_completions(h.id)) for h in habits
+        )
+        best_streak = max(
+            [self.streak_service.get_streak_info(h.id)["current_streak"]
+             for h in habits] + [0]
+        )
+
+        # Clear previous cards
+        while self.stats_row.count():
+            item = self.stats_row.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
-        habits = self.habit_service.get_all_habits()
-        stats = [
-            ("🎯", str(len(habits)), "Habits", "#6366F1"),
-            (
-                "🚀",
-                str(
-                    sum(
-                        len(self.habit_service.get_habit_completions(h.id))
-                        for h in habits
-                    )
-                ),
-                "Total XP",
-                "#10B981",
-            ),
-            (
-                "🔥",
-                str(
-                    max(
-                        [
-                            self.streak_service.get_streak_info(h.id)["current_streak"]
-                            for h in habits
-                        ]
-                        + [0]
-                    )
-                ),
-                "Streak",
-                "#F59E0B",
-            ),
+        cards = [
+            ("🎯", str(total_habits), "Habits", "#10B981"),
+            ("🚀", str(total_xp), "Total XP", "#7C3AED"),
+            ("🔥", str(best_streak), "Best Streak", "#F59E0B"),
         ]
+        for icon, val, lbl, accent in cards:
+            self.stats_row.addWidget(StatCard(icon, val, lbl, accent))
 
-        for icon, val, lbl, col in stats:
-            self.stats_hlayout.addWidget(StatCard(icon, val, lbl, col))
-
+    # ─── save ────────────────────────────────────────
     def save_profile(self):
         name = self.inputs["name"].text().strip()
         email = self.inputs["email"].text().strip()
         bio = self.inputs["bio"].toPlainText().strip()
 
         if not name:
-            QMessageBox.warning(
-                self, "Validation Error", "Please provide a valid display name."
-            )
+            QMessageBox.warning(self, "Validation Error",
+                                "Please provide a valid display name.")
             return
 
         try:
             self.profile_service.update_profile(name=name, email=email, bio=bio)
             self.name_header.setText(name)
+
             if self.main_window and hasattr(self.main_window, "sidebar"):
                 self.main_window.sidebar.update_profile_name(name)
-            QMessageBox.information(self, "Success", "Profile updated successfully!")
+
+            orig = self.save_btn.text()
+            self.save_btn.setText("✓  Saved!")
+            self.save_btn.setStyleSheet("""
+                QPushButton {
+                    background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
+                        stop:0 #10B981, stop:1 #059669);
+                    color:#FFFFFF; border:none; border-radius:22px;
+                }
+            """)
+            QTimer.singleShot(1800, lambda: self._reset_btn(orig))
         except Exception as e:
-            QMessageBox.critical(self, "Sync Failed", f"Unexpected error: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Unexpected error: {str(e)}")
+
+    def _reset_btn(self, text):
+        self.save_btn.setText(text)
+        self.save_btn.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
+                    stop:0 #7C3AED, stop:1 #6D28D9);
+                color:#FFFFFF; border:none; border-radius:22px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
+                    stop:0 #8B5CF6, stop:1 #7C3AED);
+            }
+        """)

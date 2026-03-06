@@ -8,7 +8,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QLabel,
-    QPushButton,
     QScrollArea,
     QFrame,
     QGraphicsDropShadowEffect,
@@ -32,7 +31,7 @@ class LineChart(QWidget):
         self.data = data
         self.labels = labels
         self.title = title
-        self.setMinimumHeight(350)
+        self.setMinimumHeight(400)
         self.setStyleSheet("background-color: transparent;")
 
     def get_nice_scale(self, max_value):
@@ -74,14 +73,17 @@ class LineChart(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        # Chart area
-        margin = 60
-        chart_width = self.width() - (margin * 2)
-        chart_height = self.height() - (margin * 2)
+        # Chart area - extra bottom margin for labels
+        margin_top = 60
+        margin_left = 60
+        margin_right = 60
+        margin_bottom = 90
+        chart_width = self.width() - margin_left - margin_right
+        chart_height = self.height() - margin_top - margin_bottom
 
         if not self.data or len(self.data) == 0:
             painter.setPen(QColor("#9CA3AF"))
-            painter.setFont(QFont("SF Pro Text", 14))
+            painter.setFont(QFont("Inter", 14))
             painter.drawText(self.rect(), Qt.AlignCenter, "No data available")
             return
 
@@ -91,16 +93,16 @@ class LineChart(QWidget):
         # Draw grid lines and Y-axis labels
         num_lines = len(scale_values)
         for i, value in enumerate(reversed(scale_values)):
-            y = margin + (chart_height * i / (num_lines - 1))
+            y = margin_top + (chart_height * i / (num_lines - 1))
 
             # Grid line
             painter.setPen(QPen(QColor("#E5E7EB"), 1))
-            painter.drawLine(margin, int(y), self.width() - margin, int(y))
+            painter.drawLine(margin_left, int(y), self.width() - margin_right, int(y))
 
             # Y-axis label
             painter.setPen(QColor("#6B7280"))
-            painter.setFont(QFont("SF Pro Text", 11))
-            text_rect = QRect(5, int(y) - 10, margin - 10, 20)
+            painter.setFont(QFont("Inter", 11))
+            text_rect = QRect(5, int(y) - 10, margin_left - 10, 20)
             painter.drawText(text_rect, Qt.AlignRight | Qt.AlignVCenter, str(value))
 
         # Draw line
@@ -110,9 +112,9 @@ class LineChart(QWidget):
             # Calculate points
             points = []
             for i, value in enumerate(self.data):
-                x = margin + (chart_width * i / (len(self.data) - 1))
+                x = margin_left + (chart_width * i / (len(self.data) - 1))
                 y = (
-                    margin
+                    margin_top
                     + chart_height
                     - (chart_height * value / max_scale if max_scale > 0 else 0)
                 )
@@ -120,7 +122,7 @@ class LineChart(QWidget):
 
             # Draw gradient fill
             # Use brand gradient with transparency
-            brand_gradient = QLinearGradient(0, margin, 0, margin + chart_height)
+            brand_gradient = QLinearGradient(0, margin_top, 0, margin_top + chart_height)
             brand_gradient.setColorAt(
                 0, QColor(102, 126, 234, 100)
             )  # #667eea (alpha 100/255)
@@ -129,10 +131,10 @@ class LineChart(QWidget):
             )  # #f093fb (alpha 20/255)
 
             fill_path = QPainterPath()
-            fill_path.moveTo(points[0][0], margin + chart_height)
+            fill_path.moveTo(points[0][0], margin_top + chart_height)
             for x, y in points:
                 fill_path.lineTo(x, y)
-            fill_path.lineTo(points[-1][0], margin + chart_height)
+            fill_path.lineTo(points[-1][0], margin_top + chart_height)
             fill_path.closeSubpath()
 
             painter.fillPath(fill_path, brand_gradient)
@@ -151,23 +153,40 @@ class LineChart(QWidget):
                 painter.setPen(QPen(QColor("#667eea"), 3))
                 painter.drawEllipse(int(x) - 5, int(y) - 5, 10, 10)
 
-        # Draw X-axis labels
-        painter.setPen(QColor("#6B7280"))
-        painter.setFont(QFont("SF Pro Text", 10))
-
+        # Draw X-axis labels – modern horizontal style
         label_step = max(1, len(self.labels) // 10)  # Show max 10 labels
+        label_y = margin_top + chart_height + 16  # Below chart with comfortable gap
+
         for i, label in enumerate(self.labels):
             if label and (i % label_step == 0 or i == len(self.labels) - 1):
                 x = (
-                    margin + (chart_width * i / (len(self.data) - 1))
+                    margin_left + (chart_width * i / (len(self.data) - 1))
                     if len(self.data) > 1
-                    else margin
+                    else margin_left
                 )
-                painter.save()
-                painter.translate(int(x), self.height() - margin + 20)
-                painter.rotate(-45)
-                painter.drawText(0, 0, label)
-                painter.restore()
+
+                # Measure text width for centering & pill background
+                font = QFont("Inter", 9, QFont.Medium)
+                painter.setFont(font)
+                fm = painter.fontMetrics()
+                tw = fm.horizontalAdvance(label)
+                th = fm.height()
+
+                pill_w = tw + 16
+                pill_h = th + 8
+                pill_x = int(x) - pill_w // 2
+                pill_y = int(label_y)
+
+                # Pill background
+                painter.setPen(Qt.NoPen)
+                painter.setBrush(QColor("#F1F5F9"))
+                painter.drawRoundedRect(pill_x, pill_y, pill_w, pill_h, pill_h / 2, pill_h / 2)
+
+                # Label text
+                painter.setPen(QColor("#64748B"))
+                painter.setBrush(Qt.NoBrush)
+                text_rect = QRect(pill_x, pill_y, pill_w, pill_h)
+                painter.drawText(text_rect, Qt.AlignCenter, label)
 
 
 class BarChart(QWidget):
@@ -178,7 +197,7 @@ class BarChart(QWidget):
         self.data = data
         self.labels = labels
         self.title = title
-        self.setMinimumHeight(350)
+        self.setMinimumHeight(400)
         self.setStyleSheet("background-color: transparent;")
 
     def get_nice_scale(self, max_value):
@@ -220,13 +239,16 @@ class BarChart(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        margin = 60
-        chart_width = self.width() - (margin * 2)
-        chart_height = self.height() - (margin * 2)
+        margin_top = 60
+        margin_left = 60
+        margin_right = 60
+        margin_bottom = 90
+        chart_width = self.width() - margin_left - margin_right
+        chart_height = self.height() - margin_top - margin_bottom
 
         if not self.data or len(self.data) == 0:
             painter.setPen(QColor("#9CA3AF"))
-            painter.setFont(QFont("SF Pro Text", 14))
+            painter.setFont(QFont("Inter", 14))
             painter.drawText(self.rect(), Qt.AlignCenter, "No data available")
             return
 
@@ -236,16 +258,16 @@ class BarChart(QWidget):
         # Draw grid lines and Y-axis labels
         num_lines = len(scale_values)
         for i, value in enumerate(reversed(scale_values)):
-            y = margin + (chart_height * i / (num_lines - 1))
+            y = margin_top + (chart_height * i / (num_lines - 1))
 
             # Grid line
             painter.setPen(QPen(QColor("#E5E7EB"), 1))
-            painter.drawLine(margin, int(y), self.width() - margin, int(y))
+            painter.drawLine(margin_left, int(y), self.width() - margin_right, int(y))
 
             # Y-axis label
             painter.setPen(QColor("#6B7280"))
-            painter.setFont(QFont("SF Pro Text", 11))
-            text_rect = QRect(5, int(y) - 10, margin - 10, 20)
+            painter.setFont(QFont("Inter", 11))
+            text_rect = QRect(5, int(y) - 10, margin_left - 10, 20)
             painter.drawText(text_rect, Qt.AlignRight | Qt.AlignVCenter, str(value))
 
         # Draw bars
@@ -253,9 +275,9 @@ class BarChart(QWidget):
         bar_spacing = chart_width / len(self.data)
 
         for i, value in enumerate(self.data):
-            x = margin + (bar_spacing * i) + (bar_spacing - bar_width) / 2
+            x = margin_left + (bar_spacing * i) + (bar_spacing - bar_width) / 2
             bar_height = (chart_height * value / max_scale) if max_scale > 0 else 0
-            y = margin + chart_height - bar_height
+            y = margin_top + chart_height - bar_height
 
             # Gradient for bar
             gradient = QLinearGradient(x, y, x, y + bar_height)
@@ -278,19 +300,36 @@ class BarChart(QWidget):
                     str(int(value)),
                 )
 
-        # Draw X-axis labels
-        painter.setPen(QColor("#6B7280"))
-        painter.setFont(QFont("SF Pro Text", 9))
-
+        # Draw X-axis labels – modern horizontal style
         label_step = max(1, len(self.labels) // 10)
+        label_y = margin_top + chart_height + 16
+
         for i, label in enumerate(self.labels):
             if label and (i % label_step == 0 or i == len(self.labels) - 1):
-                x = margin + (bar_spacing * i)
-                painter.save()
-                painter.translate(int(x + bar_spacing / 2), self.height() - margin + 20)
-                painter.rotate(-45)
-                painter.drawText(0, 0, label)
-                painter.restore()
+                x = margin_left + (bar_spacing * i) + bar_spacing / 2
+
+                # Measure text width for centering & pill background
+                font = QFont("Inter", 9, QFont.Medium)
+                painter.setFont(font)
+                fm = painter.fontMetrics()
+                tw = fm.horizontalAdvance(label)
+                th = fm.height()
+
+                pill_w = tw + 16
+                pill_h = th + 8
+                pill_x = int(x) - pill_w // 2
+                pill_y = int(label_y)
+
+                # Pill background
+                painter.setPen(Qt.NoPen)
+                painter.setBrush(QColor("#F1F5F9"))
+                painter.drawRoundedRect(pill_x, pill_y, pill_w, pill_h, pill_h / 2, pill_h / 2)
+
+                # Label text
+                painter.setPen(QColor("#64748B"))
+                painter.setBrush(Qt.NoBrush)
+                text_rect = QRect(pill_x, pill_y, pill_w, pill_h)
+                painter.drawText(text_rect, Qt.AlignCenter, label)
 
 
 class StatCard(QFrame):
@@ -560,17 +599,6 @@ class AnalyticsContentView(QWidget):
                 if self.habit_service.is_habit_completed_on_date(habit.id, date):
                     total_completions += 1
 
-        completion_rate = (
-            int((total_completions / total_possible) * 100) if total_possible > 0 else 0
-        )
-        best_streak = max(
-            (
-                self.streak_service.get_streak_info(h.id).get("longest_streak", 0)
-                for h in habits
-            ),
-            default=0,
-        )
-
         # SECTION 1: HERO STATS
 
         hero_container = QFrame()
@@ -821,51 +849,55 @@ class AnalyticsContentView(QWidget):
         self.chart_type_group = QButtonGroup()
 
         line_btn = QRadioButton("Line Chart")
-        line_btn.setFont(QFont("SF Pro Text", 13))
+        line_btn.setFont(QFont("SF Pro Text", 12, QFont.Medium))
         line_btn.setChecked(True)
+        line_btn.setCursor(Qt.PointingHandCursor)
         line_btn.setStyleSheet("""
             QRadioButton {
-                color: #374151;
-                spacing: 8px;
+                color: #4B5563;
+                background-color: #F3F4F6;
+                padding: 8px 18px;
+                border-radius: 18px;
+                border: 1px solid #E5E7EB;
             }
             QRadioButton::indicator {
-                width: 18px;
-                height: 18px;
+                width: 0px;
+                height: 0px;
             }
-            QRadioButton::indicator:checked {
+            QRadioButton:checked {
                 background-color: #6366F1;
-                border: 2px solid #6366F1;
-                border-radius: 9px;
+                color: white;
+                border: 1px solid #4F46E5;
             }
-            QRadioButton::indicator:unchecked {
-                background-color: #FFFFFF;
-                border: 2px solid #D1D5DB;
-                border-radius: 9px;
+            QRadioButton:hover:!checked {
+                background-color: #E5E7EB;
             }
         """)
         self.chart_type_group.addButton(line_btn, 0)
         chart_type_layout.addWidget(line_btn)
 
         bar_btn = QRadioButton("Bar Chart")
-        bar_btn.setFont(QFont("SF Pro Text", 13))
+        bar_btn.setFont(QFont("SF Pro Text", 12, QFont.Medium))
+        bar_btn.setCursor(Qt.PointingHandCursor)
         bar_btn.setStyleSheet("""
             QRadioButton {
-                color: #374151;
-                spacing: 8px;
+                color: #4B5563;
+                background-color: #F3F4F6;
+                padding: 8px 18px;
+                border-radius: 18px;
+                border: 1px solid #E5E7EB;
             }
             QRadioButton::indicator {
-                width: 18px;
-                height: 18px;
+                width: 0px;
+                height: 0px;
             }
-            QRadioButton::indicator:checked {
+            QRadioButton:checked {
                 background-color: #6366F1;
-                border: 2px solid #6366F1;
-                border-radius: 9px;
+                color: white;
+                border: 1px solid #4F46E5;
             }
-            QRadioButton::indicator:unchecked {
-                background-color: #FFFFFF;
-                border: 2px solid #D1D5DB;
-                border-radius: 9px;
+            QRadioButton:hover:!checked {
+                background-color: #E5E7EB;
             }
         """)
         self.chart_type_group.addButton(bar_btn, 1)
@@ -1413,30 +1445,20 @@ class AnalyticsContentView(QWidget):
 
         if is_best:
             accent_color = "#10B981"
-            bg_styles = """
-                background-color: #ECFDF5;
-                border: 1px solid #D1FAE5;
-                border-radius: 12px;
-            """
-            text_color = "#065F46"
         else:
             accent_color = "#EF4444"
-            bg_styles = """
-                background-color: #FEF2F2;
-                border: 1px solid #FEE2E2;
-                border-radius: 12px;
-            """
-            text_color = "#991B1B"
 
         card.setObjectName("perfCard")
-        card.setStyleSheet(f"""
-            QFrame#perfCard {{ 
-                {bg_styles} 
-            }}
-            QLabel {{
+        card.setStyleSheet("""
+            QFrame#perfCard { 
+                background-color: #F9FAFB;
+                border-radius: 12px;
+                border: none;
+            }
+            QLabel {
                 border: none;
                 background: transparent;
-            }}
+            }
         """)
 
         card_layout = QHBoxLayout(card)
@@ -1466,7 +1488,7 @@ class AnalyticsContentView(QWidget):
 
         name_label = QLabel(stat["habit"].name)
         name_label.setFont(QFont("SF Pro Display", 15, QFont.Bold))
-        name_label.setStyleSheet(f"color: {text_color};")
+        name_label.setStyleSheet("color: #111827;")
         info_layout.addWidget(name_label)
 
         stats_label = QLabel(
@@ -1481,7 +1503,7 @@ class AnalyticsContentView(QWidget):
         # Percentage
         percentage_label = QLabel(f"{stat['rate']}%")
         percentage_label.setFont(QFont("SF Pro Display", 24, QFont.Bold))
-        percentage_label.setStyleSheet(f"color: {text_color};")
+        percentage_label.setStyleSheet(f"color: {accent_color};")
         card_layout.addWidget(percentage_label)
 
         parent_layout.addWidget(card)

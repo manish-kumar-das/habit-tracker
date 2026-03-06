@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QGraphicsDropShadowEffect,
     QMessageBox,
 )
-from PySide6.QtCore import Qt, QPropertyAnimation, QRectF
+from PySide6.QtCore import Qt, QPropertyAnimation, QRectF, Signal, QEvent
 from PySide6.QtGui import (
     QFont,
     QPainter,
@@ -659,6 +659,22 @@ class ModernDashboard(QWidget):
             }
         """)
         navbar_layout.addWidget(notif_btn)
+        self.notif_btn = notif_btn
+        self.notif_btn.clicked.connect(self.toggle_notifications)
+
+        # Badge for notifications
+        self.notif_badge = QLabel("!", self.notif_btn)
+        self.notif_badge.setFixedSize(18, 18)
+        self.notif_badge.move(32, 0)
+        self.notif_badge.setAlignment(Qt.AlignCenter)
+        self.notif_badge.setFont(QFont("SF Pro Text", 9, QFont.Bold))
+        self.notif_badge.setStyleSheet("""
+            background-color: #EF4444;
+            color: white;
+            border-radius: 9px;
+            border: 2px solid #FFFFFF;
+        """)
+        self.notif_badge.hide()
 
         # New Habit button
         new_btn = QPushButton("+ New Habit")
@@ -683,6 +699,11 @@ class ModernDashboard(QWidget):
         navbar_layout.addWidget(new_btn)
 
         main_layout.addWidget(navbar)
+
+        # Notification Panel (Absolute positioning overlay)
+        self.notif_panel = NotificationPanel(self)
+        self.notif_panel.mark_read_btn.clicked.connect(self.mark_notifications_read)
+        self.notif_panel.closed.connect(self.update_notification_badge)
 
         # Dashboard content
         scroll = QScrollArea()
@@ -851,6 +872,7 @@ class ModernDashboard(QWidget):
                 border-radius: 20px;
             }
         """)
+        weekly_card.setFixedHeight(348)
 
         weekly_layout = QVBoxLayout(weekly_card)
         weekly_layout.setContentsMargins(30, 28, 30, 28)
@@ -882,12 +904,12 @@ class ModernDashboard(QWidget):
 
         # Premium Streak Card
         milestone_card = QFrame()
-        milestone_card.setFixedHeight(310)
+        milestone_card.setFixedHeight(348)
         milestone_card.setStyleSheet("""
             QFrame#streakCard {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #667eea, stop:0.5 #764ba2, stop:1 #f093fb);
-                border: 1.5px solid rgba(240, 147, 251, 0.35);
+                border: 1px solid rgba(240, 147, 251, 0.35);
                 border-radius: 24px;
             }
         """)
@@ -1004,7 +1026,7 @@ class ModernDashboard(QWidget):
 
         ms_layout.addLayout(footer_row)
 
-        bottom_row.addWidget(milestone_card)
+        bottom_row.addWidget(milestone_card, stretch=1)
 
         content_layout.addLayout(bottom_row)
 
@@ -1172,6 +1194,39 @@ class ModernDashboard(QWidget):
 
         # Load weekly activity
         self.load_weekly_activity()
+        self.update_notification_badge()
+
+    def toggle_notifications(self):
+        """Toggle notification panel"""
+        if self.notif_panel.isVisible():
+            self.notif_panel.hide()
+        else:
+            # Position panel below the button
+            btn_pos = self.notif_btn.mapTo(self, self.notif_btn.rect().bottomLeft())
+            self.notif_panel.move(btn_pos.x() - 300, btn_pos.y() + 10)
+            self.notif_panel.load_notifications()
+            self.notif_panel.show()
+            self.notif_panel.raise_()
+
+    def update_notification_badge(self):
+        """Update unread notification badge"""
+        from app.services.notification_service import get_notification_service
+        service = get_notification_service()
+        unread_count = service.get_unread_count()
+        
+        if unread_count > 0:
+            self.notif_badge.setText(str(unread_count) if unread_count < 10 else "9+")
+            self.notif_badge.show()
+        else:
+            self.notif_badge.hide()
+
+    def mark_notifications_read(self):
+        """Mark all notifications as read"""
+        from app.services.notification_service import get_notification_service
+        service = get_notification_service()
+        service.mark_all_as_read()
+        self.notif_panel.load_notifications()
+        self.update_notification_badge()
 
     def load_weekly_activity(self):
         """Load weekly activity graph"""
@@ -1210,3 +1265,325 @@ class ModernDashboard(QWidget):
         shadow.setColor(QColor(0, 0, 0, 40))
         shadow.setOffset(0, 8)
         widget.setGraphicsEffect(shadow)
+
+
+# =============================================================================
+# NOTIFICATION COMPONENTS
+# =============================================================================
+
+class NotificationItem(QFrame):
+    """Premium Notification Card UI"""
+
+    def __init__(self, notif_id, title, message, time_str, is_read=False, parent=None):
+        super().__init__(parent)
+        self.notif_id = notif_id
+        self.setIsRead(is_read)
+        self.setup_ui(title, message, time_str)
+
+    def setIsRead(self, is_read):
+        self.is_read = is_read
+        if is_read:
+            self.setStyleSheet("""
+                QFrame {
+                    background-color: #F9FAFB;
+                    border: 1px solid #F3F4F6;
+                    border-radius: 12px;
+                }
+                QLabel { 
+                    border: none; 
+                    background: transparent;
+                    color: #6B7280;
+                }
+            """)
+        else:
+            self.setStyleSheet("""
+                QFrame {
+                    background-color: #F0F7FF;
+                    border: 1px solid #DBEAFE;
+                    border-radius: 12px;
+                }
+                QLabel { 
+                    border: none; 
+                    background: transparent;
+                }
+            """)
+
+    def setup_ui(self, title, message, time_str):
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(15, 12, 15, 12)
+        layout.setSpacing(12)
+
+        # Content container
+        content_container = QVBoxLayout()
+        content_container.setSpacing(4)
+
+        header_row = QHBoxLayout()
+        header_row.setSpacing(8)
+
+        # Icon based on title
+        icon = "🔔"
+        if "Habit Completed" in title:
+            icon = "✅"
+        elif "Streak" in title:
+            icon = "🔥"
+        elif "Reminder" in title:
+            icon = "📋"
+
+        icon_label = QLabel(icon)
+        icon_label.setFont(QFont("SF Pro Text", 14))
+        icon_label.setFixedWidth(24)
+        header_row.addWidget(icon_label)
+
+        title_label = QLabel(title)
+        title_label.setFont(QFont("SF Pro Text", 13, QFont.Bold))
+        title_label.setStyleSheet("color: #111827; border: none;")
+        header_row.addWidget(title_label, 1)
+
+        time_label = QLabel(time_str)
+        time_label.setFont(QFont("SF Pro Text", 10))
+        time_label.setStyleSheet("color: #9CA3AF; border: none;")
+        header_row.addWidget(time_label)
+
+        content_container.addLayout(header_row)
+
+        msg_label = QLabel(message)
+        msg_label.setFont(QFont("SF Pro Text", 12))
+        msg_label.setStyleSheet("color: #4B5563; border: none;")
+        msg_label.setWordWrap(True)
+        content_container.addWidget(msg_label)
+
+        layout.addLayout(content_container, 1)
+
+        # Mark as read button (only if unread)
+        if not self.is_read:
+            self.read_btn = QPushButton("✓")
+            self.read_btn.setToolTip("Mark as read")
+            self.read_btn.setFixedSize(28, 28)
+            self.read_btn.setCursor(Qt.PointingHandCursor)
+            self.read_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #E0E7FF;
+                    color: #4F46E5;
+                    border-radius: 14px;
+                    border: none;
+                    font-weight: bold;
+                    font-size: 14px;
+                }
+                QPushButton:hover {
+                    background-color: #4F46E5;
+                    color: white;
+                }
+            """)
+            self.read_btn.clicked.connect(self.mark_read)
+            layout.addWidget(self.read_btn, 0, Qt.AlignVCenter)
+
+    def mark_read(self):
+        from app.services.notification_service import get_notification_service
+        service = get_notification_service()
+        if service.mark_as_read(self.notif_id):
+            self.setIsRead(True)
+            if hasattr(self, "read_btn"):
+                self.read_btn.deleteLater()
+            
+            # Find the panel to notify it to refresh badge
+            parent = self.parent()
+            while parent and not isinstance(parent, NotificationPanel):
+                parent = parent.parent()
+            if parent:
+                parent.notify_change()
+
+
+class NotificationPanel(QFrame):
+    """Slide-down notification menu"""
+    
+    closed = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedWidth(400)
+        self.setFixedHeight(500)
+        self.setup_ui()
+        self.hide()
+
+        if parent:
+            parent.installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        """Click outside to close"""
+        if event.type() == QEvent.MouseButtonPress and self.isVisible():
+            if not self.geometry().contains(event.pos()):
+                # Allow the toggle button to handle its own click
+                if hasattr(self.parent(), "notif_btn"):
+                    if self.parent().notif_btn.geometry().contains(event.pos()):
+                        return False
+                self.hide()
+                return True
+        return False
+
+    def setup_ui(self):
+        self.setObjectName("notificationPanel")
+        self.setStyleSheet("""
+            QFrame#notificationPanel {
+                background-color: #FFFFFF;
+                border-radius: 20px;
+                border: 1px solid #E5E7EB;
+            }
+        """)
+
+        # Shadow
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(50)
+        shadow.setOffset(0, 15)
+        shadow.setColor(QColor(0, 0, 0, 60))
+        self.setGraphicsEffect(shadow)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        # Header
+        header = QFrame()
+        header.setFixedHeight(64)
+        header.setStyleSheet("""
+            QFrame {
+                background-color: #F9FAFB;
+                border-top-left-radius: 20px;
+                border-top-right-radius: 20px;
+                border-bottom: 1px solid #F3F4F6;
+            }
+        """)
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(24, 0, 24, 0)
+
+        title = QLabel("Notifications")
+        title.setFont(QFont("SF Pro Display", 18, QFont.Bold))
+        title.setStyleSheet("color: #111827; border: none; background: transparent;")
+        header_layout.addWidget(title)
+
+        header_layout.addStretch()
+
+        self.mark_read_btn = QPushButton("Mark all as read")
+        self.mark_read_btn.setCursor(Qt.PointingHandCursor)
+        self.mark_read_btn.setFont(QFont("SF Pro Text", 11, QFont.Medium))
+        self.mark_read_btn.setStyleSheet("""
+            QPushButton {
+                color: #3B82F6;
+                background: transparent;
+                border: none;
+            }
+            QPushButton:hover {
+                text-decoration: underline;
+                color: #2563EB;
+            }
+        """)
+        header_layout.addWidget(self.mark_read_btn)
+
+        layout.addWidget(header)
+
+        # Scroll area
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.NoFrame)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll.setStyleSheet("""
+            QScrollArea {
+                background: transparent; 
+                border: none;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: #F9FAFB;
+                width: 8px;
+                margin: 0px 0px 0px 0px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical {
+                background: #D1D5DB;
+                min-height: 30px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #9CA3AF;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                border: none;
+                background: none;
+                height: 0px;
+            }
+            QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {
+                background: none;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
+            }
+        """)
+
+        self.list_container = QWidget()
+        self.list_container.setStyleSheet("background: transparent; border: none;")
+        self.list_layout = QVBoxLayout(self.list_container)
+        self.list_layout.setContentsMargins(16, 16, 16, 16)
+        self.list_layout.setSpacing(12)
+        self.list_layout.setAlignment(Qt.AlignTop)
+
+        self.scroll.setWidget(self.list_container)
+        layout.addWidget(self.scroll)
+
+    def notify_change(self):
+        self.closed.emit()
+
+    def add_list_header(self, text):
+        """Add a section header to the list"""
+        header = QLabel(text)
+        header.setFont(QFont("SF Pro Text", 12, QFont.Bold))
+        header.setStyleSheet("color: #6B7280; border: none; padding-top: 8px; padding-bottom: 4px;")
+        self.list_layout.addWidget(header)
+
+    def load_notifications(self):
+        from app.services.notification_service import get_notification_service
+        service = get_notification_service()
+        notifications = service.get_all_notifications()
+
+        # Safely clear list
+        while self.list_layout.count():
+            item = self.list_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        if not notifications:
+            empty = QLabel("No notifications yet")
+            empty.setFont(QFont("SF Pro Text", 14))
+            empty.setStyleSheet("color: #9CA3AF; border: none;")
+            empty.setAlignment(Qt.AlignCenter)
+            empty.setMinimumHeight(120)
+            self.list_layout.addWidget(empty)
+        else:
+            unread = [n for n in notifications if n["is_read"] == 0]
+            read = [n for n in notifications if n["is_read"] == 1]
+
+            if unread:
+                self.add_list_header("New")
+                for n in unread:
+                    card = self._create_card(n)
+                    self.list_layout.addWidget(card)
+                
+            if read:
+                if unread:
+                    self.list_layout.addSpacing(16)
+                self.add_list_header("Earlier")
+                for n in read:
+                    card = self._create_card(n)
+                    self.list_layout.addWidget(card)
+
+        self.list_layout.addStretch()
+
+    def _create_card(self, n):
+        """Helper to create a notification card"""
+        try:
+            dt = datetime.fromisoformat(n["created_at"])
+            time_str = dt.strftime("%I:%M %p")
+        except Exception:
+            time_str = "Recently"
+
+        return NotificationItem(
+            n["id"], n["title"], n["message"], time_str, n["is_read"] == 1
+        )

@@ -322,15 +322,15 @@ class SettingsContentView(QWidget):
         self.content_layout.addWidget(theme_card)
 
         # Compact mode
-        self.compact_check = ToggleSwitch()
+        # self.compact_check = ToggleSwitch()
 
-        compact_card = SettingCard(
-            "📱",
-            "Compact Mode",
-            "Show more content with reduced spacing",
-            self.compact_check,
-        )
-        self.content_layout.addWidget(compact_card)
+        # compact_card = SettingCard(
+        #     "📱",
+        #     "Compact Mode",
+        #     "Show more content with reduced spacing",
+        #     self.compact_check,
+        # )
+        # self.content_layout.addWidget(compact_card)
 
         # SECTION: Notifications
         self.content_layout.addSpacing(12)
@@ -350,20 +350,29 @@ class SettingsContentView(QWidget):
         # Notification time
         self.notification_time = QTimeEdit()
         self.notification_time.setDisplayFormat("hh:mm AP")
-        self.notification_time.setFont(QFont("SF Pro Text", 14))
-        self.notification_time.setFixedHeight(44)
+        self.notification_time.setFont(QFont("SF Pro Display", 15, QFont.Bold))
+        self.notification_time.setFixedHeight(48)
+        self.notification_time.setFixedWidth(200)
+        self.notification_time.setAlignment(Qt.AlignCenter)
         self.notification_time.setCursor(Qt.PointingHandCursor)
+        self.notification_time.setButtonSymbols(QTimeEdit.NoButtons)
         self.notification_time.setStyleSheet("""
             QTimeEdit {
-                background-color: #F9FAFB;
-                border: 2px solid #E5E7EB;
-                border-radius: 12px;
-                padding: 8px 16px;
-                min-width: 140px;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #667eea, stop:1 #764ba2);
+                color: #FFFFFF;
+                border: none;
+                border-radius: 14px;
+                padding: 8px 24px;
+                letter-spacing: 1px;
             }
             QTimeEdit:hover {
-                border: 2px solid #6366F1;
-                background-color: #FFFFFF;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #5568d3, stop:1 #6a4191);
+            }
+            QTimeEdit:focus {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #5568d3, stop:1 #6a4191);
             }
         """)
 
@@ -375,20 +384,20 @@ class SettingsContentView(QWidget):
         )
         self.content_layout.addWidget(time_card)
 
-        # SECTION: Display
-        self.content_layout.addSpacing(12)
-        self.add_section_header("👁️", "Display", "Control what you see")
+        # # SECTION: Display
+        # self.content_layout.addSpacing(12)
+        # self.add_section_header("👁️", "Display", "Control what you see")
 
         # Show completed
-        self.show_completed_check = ToggleSwitch()
+        # self.show_completed_check = ToggleSwitch()
 
-        completed_card = SettingCard(
-            "✅",
-            "Show Completed Habits",
-            "Display habits that are already completed today",
-            self.show_completed_check,
-        )
-        self.content_layout.addWidget(completed_card)
+        # completed_card = SettingCard(
+        #     "✅",
+        #     "Show Completed Habits",
+        #     "Display habits that are already completed today",
+        #     self.show_completed_check,
+        # )
+        # self.content_layout.addWidget(completed_card)
 
         # SECTION: Data Management
         self.content_layout.addSpacing(12)
@@ -577,7 +586,7 @@ class SettingsContentView(QWidget):
                 self.theme_combo.setCurrentIndex(index)
 
             # Compact mode
-            self.compact_check.setChecked(self.settings_service.get_compact_mode())
+            # self.compact_check.setChecked(self.settings_service.get_compact_mode())
 
             # Notifications
             self.notifications_check.setChecked(
@@ -592,10 +601,6 @@ class SettingsContentView(QWidget):
             except Exception:
                 self.notification_time.setTime(QTime(9, 0))
 
-            # Show completed
-            self.show_completed_check.setChecked(
-                self.settings_service.get_show_completed()
-            )
         except Exception as e:
             print(f"Error loading settings: {e}")
 
@@ -607,7 +612,7 @@ class SettingsContentView(QWidget):
             self.settings_service.set_theme(theme)
 
             # Save compact mode
-            self.settings_service.set_compact_mode(self.compact_check.isChecked())
+            # self.settings_service.set_compact_mode(self.compact_check.isChecked())
 
             # Save notifications
             self.settings_service.set_notifications_enabled(
@@ -618,11 +623,6 @@ class SettingsContentView(QWidget):
             time = self.notification_time.time()
             time_str = time.toString("HH:mm")
             self.settings_service.set_notification_time(time_str)
-
-            # Save show completed
-            self.settings_service.set_show_completed(
-                self.show_completed_check.isChecked()
-            )
 
             # Success message
             QMessageBox.information(

@@ -250,6 +250,7 @@ class GoalService:
         try:
             from app.services.streak_service import get_streak_service
             from app.services.habit_service import get_habit_service
+            from app.services.notification_service import get_notification_service
 
             goals = self.get_goals_by_habit(habit_id, include_completed=False)
             streak_service = get_streak_service()
@@ -268,7 +269,10 @@ class GoalService:
                 self.update_goal_progress(goal.id, current_value)
 
                 if current_value >= goal.target_value:
-                    self.complete_goal(goal.id)
+                    if self.complete_goal(goal.id):
+                        get_notification_service().send_goal_completed(
+                            goal.goal_type, goal.target_value
+                        )
         except Exception as e:
             print(f"Error checking and updating goals: {e}")
 

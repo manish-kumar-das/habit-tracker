@@ -15,6 +15,7 @@ from PySide6.QtGui import QFont
 from app.services.habit_service import get_habit_service
 from app.services.streak_service import get_streak_service
 from app.services.stats_service import get_stats_service
+from app.services.scheduler_service import get_scheduler_service
 
 
 class MainWindow(QMainWindow):
@@ -28,6 +29,7 @@ class MainWindow(QMainWindow):
         self.habit_service = get_habit_service()
         self.streak_service = get_streak_service()
         self.stats_service = get_stats_service()
+        self.scheduler = get_scheduler_service()
 
         self.setup_ui()
         self.update_status_bar()

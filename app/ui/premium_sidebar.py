@@ -80,7 +80,7 @@ class PremiumSidebar(QFrame):
         logo_text_layout = QVBoxLayout()
         logo_text_layout.setSpacing(2)
 
-        title = QLabel("HabitHub")
+        title = QLabel("Growthly")
         title.setFont(QFont("SF Pro Display", 26, QFont.Bold))
         title.setStyleSheet("color: #FFFFFF; background: transparent;")
         logo_text_layout.addWidget(title)
@@ -223,7 +223,7 @@ class PremiumSidebar(QFrame):
         )
         user_info_layout.addWidget(self.profile_name_label)
 
-        user_type = QLabel("Premium • View Profile")
+        user_type = QLabel("View Profile Section")
         user_type.setFont(QFont("SF Pro Text", 11))
         user_type.setStyleSheet(
             "color: rgba(255, 255, 255, 0.8); background: transparent;"

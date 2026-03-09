@@ -31,6 +31,8 @@ class CircularProgressGoal(QWidget):
 
     def __init__(self, percentage, size=80, parent=None):
         super().__init__(parent)
+        from app.themes import get_theme_manager
+        self.theme_manager = get_theme_manager()
         self.percentage = percentage
         self.size = size
         self.setFixedSize(size, size)
@@ -42,8 +44,11 @@ class CircularProgressGoal(QWidget):
         center = self.size / 2
         radius = (self.size - 10) / 2
 
+        is_dark = self.theme_manager.is_dark_mode()
+        
         # Background circle
-        painter.setPen(QPen(QColor("#E5E7EB"), 6))
+        track_color = QColor("#3A3D4A") if is_dark else QColor("#E5E7EB")
+        painter.setPen(QPen(track_color, 6))
         painter.drawEllipse(
             int(center - radius), int(center - radius), int(radius * 2), int(radius * 2)
         )
@@ -70,7 +75,8 @@ class CircularProgressGoal(QWidget):
             )
 
         # Percentage text
-        painter.setPen(QColor("#111827"))
+        text_color = QColor("#dbdee4") if self.theme_manager.is_dark_mode() else QColor("#111827")
+        painter.setPen(text_color)
         painter.setFont(QFont("SF Pro Display", int(self.size / 4), QFont.Bold))
         painter.drawText(self.rect(), Qt.AlignCenter, f"{int(self.percentage)}%")
 
@@ -111,30 +117,32 @@ class GoalCard(QFrame):
 
         # Status-based styling
         days_left = self._calculate_days_left()
+        is_dark = getattr(self.parent_view, 'theme_manager', get_theme_manager()).is_dark_mode()
 
         if self.goal.is_completed:
-            bg_gradient = "qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #ECFDF5, stop:1 #D1FAE5)"
+            bg_gradient = "qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #064E3B, stop:1 #065F46)" if is_dark else "qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #ECFDF5, stop:1 #D1FAE5)"
             border_color = "#10B981"
-            status_color = "#059669"
+            status_color = "#34D399" if is_dark else "#059669"
         elif days_left <= 3 and progress_percent < 80:
-            bg_gradient = "qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #FEF2F2, stop:1 #FEE2E2)"
+            bg_gradient = "qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #450A0A, stop:1 #7F1D1D)" if is_dark else "qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #FEF2F2, stop:1 #FEE2E2)"
             border_color = "#EF4444"
-            status_color = "#DC2626"
+            status_color = "#F87171" if is_dark else "#DC2626"
         elif progress_percent >= 70:
-            bg_gradient = "qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #FEF3C7, stop:1 #FDE68A)"
+            bg_gradient = "qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #451A03, stop:1 #7C2D12)" if is_dark else "qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #FEF3C7, stop:1 #FDE68A)"
             border_color = "#F59E0B"
-            status_color = "#D97706"
+            status_color = "#FB923C" if is_dark else "#D97706"
         else:
-            bg_gradient = "#FFFFFF"
+            bg_gradient = "#252732" if is_dark else "#FFFFFF"
             border_color = "#6366F1"
-            status_color = "#4F46E5"
+            status_color = "#dbdee4" if is_dark else "#4F46E5"
 
         self.setObjectName("goalCard")
+        border_rgba = "rgba(255, 255, 255, 0.1)" if is_dark else "rgba(0, 0, 0, 0.05)"
         self.setStyleSheet(f"""
             QFrame#goalCard {{
                 background: {bg_gradient};
                 border-radius: 20px;
-                border: 1px solid rgba(0, 0, 0, 0.05);
+                border: 1px solid {border_rgba};
             }}
             QLabel {{
                 border: none;
@@ -164,13 +172,13 @@ class GoalCard(QFrame):
         # Goal title
         title = QLabel(self.goal.goal_type.replace("_", " ").title())
         title.setFont(QFont("SF Pro Display", 20, QFont.Bold))
-        title.setStyleSheet("color: #111827;")
+        title.setStyleSheet(f"color: {'#F8F9FA' if is_dark else '#111827'};")
         info_layout.addWidget(title)
 
         # Habit name
         habit_label = QLabel(f"📌 {self.habit.name}")
         habit_label.setFont(QFont("SF Pro Text", 14))
-        habit_label.setStyleSheet("color: #6B7280;")
+        habit_label.setStyleSheet(f"color: {'#B8BFCC' if is_dark else '#6B7280'};")
         info_layout.addWidget(habit_label)
 
         # ===== Progress Text (CLEAN) =====
@@ -178,7 +186,8 @@ class GoalCard(QFrame):
             f"{current_value} / {self.goal.target_value} {self._get_unit()}"
         )
         progress_text.setFont(QFont("SF Pro Display", 16, QFont.Bold))
-        progress_text.setStyleSheet(f"color: {status_color};")
+        progress_text_color = "#E0E7FF" if is_dark else status_color
+        progress_text.setStyleSheet(f"color: {progress_text_color};")
         info_layout.addWidget(progress_text)
         top_row.addLayout(info_layout, 1)
 
@@ -243,11 +252,12 @@ class GoalCard(QFrame):
         # ===== Progress Bar =====
         progress_bar_container = QFrame()
         progress_bar_container.setFixedHeight(16)
-        progress_bar_container.setStyleSheet("""
-            QFrame {
-                background-color: #E5E7EB;
+        track_bg = "#3A3D4A" if is_dark else "#E5E7EB"
+        progress_bar_container.setStyleSheet(f"""
+            QFrame {{
+                background-color: {track_bg};
                 border-radius: 8px;
-            }
+            }}
         """)
 
         progress_bar_layout = QHBoxLayout(progress_bar_container)
@@ -344,13 +354,14 @@ class GoalCard(QFrame):
             f"Started: {self.goal.created_at.split()[0] if hasattr(self.goal, 'created_at') else 'N/A'}"
         )
         started_label.setFont(QFont("SF Pro Text", 11))
-        started_label.setStyleSheet("color: #6B7280;")
+        started_label.setStyleSheet(f"color: {'#8B92A0' if is_dark else '#6B7280'};")
         date_layout.addWidget(started_label)
 
         if not self.goal.is_completed:
             remaining_label = QLabel(f"{days_left} days remaining")
             remaining_label.setFont(QFont("SF Pro Text", 11, QFont.Bold))
-            remaining_label.setStyleSheet(f"color: {status_color};")
+            remaining_color = "#E0E7FF" if is_dark else status_color
+            remaining_label.setStyleSheet(f"color: {remaining_color};")
             date_layout.addWidget(remaining_label)
 
         bottom_row.addLayout(date_layout)
@@ -685,7 +696,9 @@ class GoalsContentView(QWidget):
     def setup_ui(self):
         """Setup goals UI"""
         colors = self.theme_manager.get_theme()
-        self.setStyleSheet(f"background-color: {colors.BG_PRIMARY};")
+        is_dark = self.theme_manager.is_dark_mode()
+        bg_primary = "#1A1C23" if is_dark else colors.BG_PRIMARY
+        self.setStyleSheet(f"background-color: {bg_primary};")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -694,9 +707,11 @@ class GoalsContentView(QWidget):
         # Header
         self.header = QFrame()
         self.header.setMinimumHeight(120)
+        is_dark = self.theme_manager.is_dark_mode()
+        header_bg = "#1A1C23" if is_dark else "#FFFFFF"
         self.header.setStyleSheet(f"""
             QFrame {{
-                background-color: {colors.BG_PRIMARY};
+                background-color: {header_bg};
                 border: none;
             }}
         """)
@@ -784,7 +799,9 @@ class GoalsContentView(QWidget):
         """)
 
         self.content = QWidget()
-        self.content.setStyleSheet(f"background-color: {colors.BG_PRIMARY};")
+        is_dark = self.theme_manager.is_dark_mode()
+        content_bg = "#1A1C23" if is_dark else "#FFFFFF"
+        self.content.setStyleSheet(f"background-color: {content_bg};")
         self.content_layout = QVBoxLayout(self.content)
         self.content_layout.setContentsMargins(40, 28, 40, 28)
         self.content_layout.setSpacing(24)
@@ -795,18 +812,20 @@ class GoalsContentView(QWidget):
     def apply_theme(self):
         """Apply the global color theme."""
         colors = self.theme_manager.get_theme()
+        is_dark = self.theme_manager.is_dark_mode()
+        header_bg = "#1A1C23" if is_dark else colors.BG_PRIMARY
         
-        self.setStyleSheet(f"background-color: {colors.BG_PRIMARY};")
         if hasattr(self, 'header'):
             self.header.setStyleSheet(f"""
                 QFrame {{
-                    background-color: {colors.BG_PRIMARY};
+                    background-color: {header_bg};
                     border: none;
                 }}
             """)
             
         if hasattr(self, 'content'):
-            self.content.setStyleSheet(f"background-color: {colors.BG_PRIMARY};")
+            content_bg = "#1A1C23" if is_dark else colors.BG_PRIMARY
+            self.content.setStyleSheet(f"background-color: {content_bg};")
             
         if hasattr(self, 'title_label'):
             self.title_label.setStyleSheet(f"color: {colors.TEXT_PRIMARY}; background: transparent; padding-bottom: 4px;")
@@ -871,9 +890,11 @@ class GoalsContentView(QWidget):
 
         # Active goals section
         if active_goals:
+            is_dark = self.theme_manager.is_dark_mode()
             active_header = QLabel(f"🎯 Active Goals ({len(active_goals)})")
             active_header.setFont(QFont("SF Pro Display", 22, QFont.Bold))
-            active_header.setStyleSheet("color: #111827;")
+            header_color = "#B8BFCC" if is_dark else "#111827"
+            active_header.setStyleSheet(f"color: {header_color};")
             self.content_layout.addWidget(active_header)
 
             for goal in active_goals:

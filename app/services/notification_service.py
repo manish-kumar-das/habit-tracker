@@ -6,6 +6,9 @@ import sys
 import subprocess
 from app.db.database import get_db_connection
 from app.services.settings_service import get_settings_service
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class NotificationService:
@@ -17,7 +20,7 @@ class NotificationService:
     def send_notification(self, title, message):
         """Send a desktop notification"""
         if not self.settings_service.is_notifications_enabled():
-            print("❌ Notifications disabled in settings")
+            logger.info("❌ Notifications disabled in settings")
             return False
 
         try:
@@ -36,10 +39,10 @@ class NotificationService:
                 )
 
                 if result.returncode == 0:
-                    print(f"✅ Notification sent: {title}")
+                    logger.info(f"✅ Notification sent: {title}")
                     return True
                 else:
-                    print(f"❌ notify-send failed: {result.stderr}")
+                    logger.error(f"❌ notify-send failed: {result.stderr}")
                     return False
 
             elif sys.platform == "darwin":
@@ -65,7 +68,7 @@ class NotificationService:
                     return False
 
         except Exception as e:
-            print(f"❌ Notification error: {e}")
+            logger.error(f"❌ Notification error: {e}")
             return False
         finally:
             # Always save to database for in-app display, even if desktop fails
@@ -84,9 +87,9 @@ class NotificationService:
             )
             conn.commit()
             conn.close()
-            print(f"📦 Saved notification to DB: {title}")
+            logger.info(f"📦 Saved notification to DB: {title}")
         except Exception as e:
-            print(f"❌ Error saving notification: {e}")
+            logger.error(f"❌ Error saving notification: {e}")
 
     def get_all_notifications(self, limit=50):
         """Get all notifications from database"""
@@ -100,7 +103,7 @@ class NotificationService:
             conn.close()
             return [dict(row) for row in rows]
         except Exception as e:
-            print(f"❌ Error fetching notifications: {e}")
+            logger.error(f"❌ Error fetching notifications: {e}")
             return []
 
     def get_unread_count(self):
@@ -115,7 +118,7 @@ class NotificationService:
             conn.close()
             return count
         except Exception as e:
-            print(f"❌ Error getting unread count: {e}")
+            logger.error(f"❌ Error getting unread count: {e}")
             return 0
 
     def mark_all_as_read(self):
@@ -128,7 +131,7 @@ class NotificationService:
             conn.close()
             return True
         except Exception as e:
-            print(f"❌ Error marking notifications as read: {e}")
+            logger.error(f"❌ Error marking notifications as read: {e}")
             return False
 
     def mark_as_read(self, notif_id):
@@ -141,15 +144,15 @@ class NotificationService:
             conn.close()
             return True
         except Exception as e:
-            print(f"❌ Error marking notification as read: {e}")
+            logger.error(f"❌ Error marking notification as read: {e}")
             return False
 
     def send_daily_reminder(self):
         """Send daily reminder for incomplete habits"""
-        print("\n🔔 send_daily_reminder() called")
+        logger.debug("\n🔔 send_daily_reminder() called")
 
         if not self.settings_service.is_notifications_enabled():
-            print("❌ Notifications disabled")
+            logger.info("❌ Notifications disabled")
             return False
 
         # Import here to avoid circular dependency
@@ -158,12 +161,12 @@ class NotificationService:
         habit_service = get_habit_service()
 
         habits = habit_service.get_all_habits()
-        print(f"📋 Total habits: {len(habits)}")
+        logger.debug(f"📋 Total habits: {len(habits)}")
 
         incomplete = [
             h for h in habits if not habit_service.is_habit_completed_today(h.id)
         ]
-        print(f"⏳ Incomplete habits: {len(incomplete)}")
+        logger.debug(f"⏳ Incomplete habits: {len(incomplete)}")
 
         count = len(incomplete)
 
@@ -172,7 +175,7 @@ class NotificationService:
         goal_service = get_goal_service()
         active_goals = goal_service.get_all_goals(include_completed=False)
         goal_count = len(active_goals)
-        print(f"🎯 Active goals: {goal_count}")
+        logger.debug(f"🎯 Active goals: {goal_count}")
 
         if count == 0:
             if goal_count == 0:
@@ -188,7 +191,7 @@ class NotificationService:
                 notif_msg += f" Plus {goal_count} goal{'s' if goal_count > 1 else ''} in progress!"
             message = notif_msg
 
-        print(f"📢 Sending: {title} - {message}")
+        logger.info(f"📢 Sending: {title} - {message}")
         return self.send_notification(title, message)
 
     def send_habit_completed(self, habit_name):

@@ -5,6 +5,9 @@ Goal Service - Handles all goal-related operations - FULLY FIXED
 from app.db.database import get_db_connection
 from app.models.goal import Goal
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class GoalService:
@@ -50,7 +53,7 @@ class GoalService:
             return goal_id
 
         except Exception as e:
-            print(f"Error creating goal: {e}")
+            logger.error(f"Error creating goal: {e}")
             import traceback
 
             traceback.print_exc()
@@ -90,7 +93,7 @@ class GoalService:
 
             return goals
         except Exception as e:
-            print(f"Error getting goals: {e}")
+            logger.error(f"Error getting goals: {e}")
             import traceback
 
             traceback.print_exc()
@@ -123,7 +126,7 @@ class GoalService:
 
             return None
         except Exception as e:
-            print(f"Error getting goal by id: {e}")
+            logger.error(f"Error getting goal by id: {e}")
             return None
 
     def get_goals_by_habit(self, habit_id, include_completed=False):
@@ -164,7 +167,7 @@ class GoalService:
 
             return goals
         except Exception as e:
-            print(f"Error getting goals by habit: {e}")
+            logger.error(f"Error getting goals by habit: {e}")
             return []
 
     def update_goal_progress(self, goal_id, current_value):
@@ -187,7 +190,7 @@ class GoalService:
 
             return True
         except Exception as e:
-            print(f"Error updating goal progress: {e}")
+            logger.error(f"Error updating goal progress: {e}")
             return False
 
     def complete_goal(self, goal_id):
@@ -212,7 +215,7 @@ class GoalService:
 
             return True
         except Exception as e:
-            print(f"Error completing goal: {e}")
+            logger.error(f"Error completing goal: {e}")
             return False
 
     def delete_goal(self, goal_id):
@@ -228,7 +231,7 @@ class GoalService:
 
             return True
         except Exception as e:
-            print(f"Error deleting goal: {e}")
+            logger.error(f"Error deleting goal: {e}")
             return False
 
     def check_and_update_goals(self, habit_id):
@@ -260,7 +263,7 @@ class GoalService:
                             goal.goal_type, goal.target_value
                         )
         except Exception as e:
-            print(f"Error checking and updating goals: {e}")
+            logger.error(f"Error checking and updating goals: {e}")
 
 
 # Singleton instance

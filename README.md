@@ -98,30 +98,23 @@ python main.py
 ```
 habit-tracker/
 ├── app/
-│   ├── ui/              # User interface components
+│   ├── views/           # User interface components (Windows, Dialogs, Content)
 │   │   ├── main_window.py
-│   │   ├── today_view.py
-│   │   └── add_habit_dialog.py
+│   │   ├── dashboard_content_view.py
+│   │   └── sidebar.py
+│   ├── themes/          # Theme system (Dark/Light mode)
+│   │   ├── light_theme.py
+│   │   └── dark_theme.py
+│   ├── widgets/         # Reusable UI components
+│   │   └── theme_toggle.py
 │   ├── models/          # Data models
-│   │   ├── habit.py
-│   │   └── habit_log.py
-│   ├── services/        # Business logic
-│   │   ├── habit_service.py
-│   │   ├── streak_service.py
-│   │   └── stats_service.py
+│   ├── services/        # Business logic & services
 │   ├── db/              # Database layer
-│   │   ├── database.py
-│   │   └── schema.py
 │   ├── utils/           # Utility functions
-│   │   ├── constants.py
-│   │   └── dates.py
 │   └── assets/          # Icons and styles
-│       ├── icons/
-│       └── styles/
 ├── data/                # SQLite database storage
-├── tests/               # Unit tests
 ├── docs/                # Documentation
-├── main.py              # Application entry point
+├── main.py              # Application entry point (Shim)
 ├── requirements.txt     # Python dependencies
 └── README.md
 ```

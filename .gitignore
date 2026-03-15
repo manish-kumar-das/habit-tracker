@@ -19,12 +19,15 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # Virtual Environment
 venv/
 env/
 ENV/
 .venv
+env.bak/
+venv.bak/
 
 # IDEs
 .vscode/
@@ -38,11 +41,11 @@ ENV/
 Thumbs.db
 desktop.ini
 
-# Database
+# Database & Settings
 *.db
 *.sqlite
 *.sqlite3
-data/*.db
+settings.json
 
 # Logs
 *.log
@@ -52,6 +55,11 @@ data/*.db
 .coverage
 htmlcov/
 
-# Project specific
-data/*
-!data/.gitkeep
+# PyInstaller
+*.spec
+
+# Project specific - User data
+data/profiles/*.png
+data/profiles/*.jpg
+data/profiles/*.jpeg
+!data/profiles/.gitkeep

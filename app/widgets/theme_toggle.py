@@ -2,6 +2,9 @@
 Theme Toggle Button
 Button widget to switch between light and dark mode
 """
+import logging
+logger = logging.getLogger(__name__)
+
 from PySide6.QtWidgets import QPushButton
 from PySide6.QtCore import Qt, Signal, QTimer, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QFont
@@ -80,7 +83,7 @@ class ThemeToggleButton(QPushButton):
         self._update_appearance()
         
         theme_name = "dark" if self.is_dark else "light"
-        print(f"[ThemeToggle] Toggled to: {theme_name}")
+        logger.info(f"[ThemeToggle] Toggled to: {theme_name}")
         
         self.theme_changed.emit(theme_name)
     

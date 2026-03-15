@@ -7,8 +7,11 @@ Usage:
     
     theme = get_theme_manager()
     colors = theme.get_theme()
-    print(colors.BG_PRIMARY)
+    logger.info(colors.BG_PRIMARY)
 """
+import logging
+logger = logging.getLogger(__name__)
+
 
 from .light import LightTheme
 from .dark import DarkTheme

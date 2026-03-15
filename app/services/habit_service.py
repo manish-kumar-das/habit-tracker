@@ -5,6 +5,9 @@ Service layer for habit-related operations - FIXED
 from datetime import datetime
 from app.db.database import get_db_connection
 from app.models.habit import Habit
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class HabitService:
@@ -159,7 +162,7 @@ class HabitService:
             return True
         except Exception as e:
             conn.close()
-            print(f"Error marking complete: {e}")
+            logger.error(f"Error marking complete: {e}")
             return False
 
     def unmark_habit_complete(self, habit_id, date=None):
@@ -186,7 +189,7 @@ class HabitService:
 
             get_goal_service().check_and_update_goals(habit_id)
         except Exception as e:
-            print(f"Error updating goals on unmark: {e}")
+            logger.error(f"Error updating goals on unmark: {e}")
 
     def is_habit_completed_today(self, habit_id):
         """Check if habit is completed today"""

@@ -36,8 +36,8 @@ class ProfileService:
         else:
             # Return default profile
             return {
-                "name": "Alex Morgan",
-                "email": "alex.morgan@example.com",
+                "name": "User",
+                "email": "user@gmail.com",
                 "bio": "Building better habits, one day at a time! 🚀",
                 "avatar_path": None,
                 "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

@@ -20,10 +20,10 @@
 
 ## 🔮 Version 1.2 (Planned)
 - [ ] Statistics dashboard
-  - [ ] Completion rate charts
-  - [ ] Calendar heatmap view
-  - [ ] Weekly/monthly trends
-  - [ ] Best streak visualization
+- [ ] Completion rate charts
+- [ ] Calendar heatmap view
+- [ ] Weekly/monthly trends
+- [ ] Best streak visualization
 - [ ] Data export (CSV, JSON)
 - [ ] Data import
 - [ ] Backup and restore

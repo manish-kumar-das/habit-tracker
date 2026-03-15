@@ -141,8 +141,8 @@ def create_profile_table(cursor):
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS user_profile (
             id INTEGER PRIMARY KEY CHECK (id = 1),
-            name TEXT DEFAULT 'Alex Morgan',
-            email TEXT DEFAULT 'alex.morgan@example.com',
+            name TEXT DEFAULT 'User',
+            email TEXT DEFAULT 'user@gmail.com',
             bio TEXT DEFAULT 'Building better habits, one day at a time! 🚀',
             avatar_path TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -155,7 +155,7 @@ def create_profile_table(cursor):
     if cursor.fetchone()[0] == 0:
         cursor.execute("""
             INSERT INTO user_profile (id, name, email, bio)
-            VALUES (1, 'Alex Morgan', 'alex.morgan@example.com', 
+            VALUES (1, 'User', 'user@gmail.com', 
                     'Building better habits, one day at a time! 🚀')
         """)
 

@@ -2,10 +2,34 @@
 Theme Manager
 Handles theme switching and persistence
 """
+import logging
+logger = logging.getLogger(__name__)
+
 import json
 import os
+import sys
 from .light import LightTheme
 from .dark import DarkTheme
+
+
+def _get_settings_path() -> str:
+    """Return a writable path for settings.json that works both in development
+    and when running as a PyInstaller frozen executable."""
+    if getattr(sys, "frozen", False):
+        data_dir = os.path.join(
+            os.path.expanduser("~"), ".local", "share", "Growthly"
+        )
+    else:
+        # Development: project root is three levels up from this file
+        # (app/themes/manager.py  →  app/themes  →  app  →  project_root)
+        data_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+    os.makedirs(data_dir, exist_ok=True)
+    return os.path.join(data_dir, "settings.json")
+
+
+_DEFAULT_SETTINGS_PATH = _get_settings_path()
 
 
 class ThemeManager:
@@ -44,7 +68,7 @@ class ThemeManager:
         # Callbacks for theme changes
         self._callbacks = []
         
-        print(f"[ThemeManager] Initialized with {len(self.themes)} themes")
+        logger.info(f"[ThemeManager] Initialized with {len(self.themes)} themes")
     
     def get_theme(self):
         """
@@ -81,10 +105,10 @@ class ThemeManager:
             raise ValueError(f"Unknown theme: {theme_name}. Available: {list(self.themes.keys())}")
         
         if theme_name == self.current_theme_name:
-            print(f"[ThemeManager] Theme '{theme_name}' already active")
+            logger.info(f"[ThemeManager] Theme '{theme_name}' already active")
             return False  # Already active
         
-        print(f"[ThemeManager] Switching from '{self.current_theme_name}' to '{theme_name}'")
+        logger.info(f"[ThemeManager] Switching from '{self.current_theme_name}' to '{theme_name}'")
         
         self.current_theme_name = theme_name
         self.current = self.themes[theme_name]
@@ -124,7 +148,7 @@ class ThemeManager:
         """
         if callback not in self._callbacks:
             self._callbacks.append(callback)
-            print(f"[ThemeManager] Registered callback: {callback.__name__}")
+            logger.info(f"[ThemeManager] Registered callback: {callback.__name__}")
     
     def unregister_callback(self, callback):
         """
@@ -135,18 +159,20 @@ class ThemeManager:
         """
         if callback in self._callbacks:
             self._callbacks.remove(callback)
-            print(f"[ThemeManager] Unregistered callback: {callback.__name__}")
+            logger.info(f"[ThemeManager] Unregistered callback: {callback.__name__}")
     
     def _notify_callbacks(self):
         """Notify all registered callbacks of theme change"""
-        print(f"[ThemeManager] Notifying {len(self._callbacks)} callbacks")
+        logger.info(f"[ThemeManager] Notifying {len(self._callbacks)} callbacks")
         for callback in self._callbacks:
             try:
                 callback(self.current_theme_name)
             except Exception as e:
-                print(f"[ThemeManager] Error in callback {callback.__name__}: {e}")
+                logger.info(f"[ThemeManager] Error in callback {callback.__name__}: {e}")
     
-    def save_preference(self, settings_path="settings.json"):
+    def save_preference(self, settings_path=None):
+        if settings_path is None:
+            settings_path = _DEFAULT_SETTINGS_PATH
         """
         Save theme preference to disk
         
@@ -171,14 +197,16 @@ class ThemeManager:
             with open(settings_path, 'w') as f:
                 json.dump(settings, f, indent=2)
             
-            print(f"[ThemeManager] Saved preference: {self.current_theme_name} to {settings_path}")
+            logger.info(f"[ThemeManager] Saved preference: {self.current_theme_name} to {settings_path}")
             return True
             
         except Exception as e:
-            print(f"[ThemeManager] Error saving preference: {e}")
+            logger.info(f"[ThemeManager] Error saving preference: {e}")
             return False
     
-    def load_preference(self, settings_path="settings.json"):
+    def load_preference(self, settings_path=None):
+        if settings_path is None:
+            settings_path = _DEFAULT_SETTINGS_PATH
         """
         Load theme preference from disk
         
@@ -189,7 +217,7 @@ class ThemeManager:
             bool: True if theme was loaded, False otherwise
         """
         if not os.path.exists(settings_path):
-            print(f"[ThemeManager] No settings file found at {settings_path}")
+            logger.info(f"[ThemeManager] No settings file found at {settings_path}")
             return False
         
         try:
@@ -198,15 +226,15 @@ class ThemeManager:
             
             if 'theme' in settings:
                 theme_name = settings['theme']
-                print(f"[ThemeManager] Loaded preference: {theme_name}")
+                logger.info(f"[ThemeManager] Loaded preference: {theme_name}")
                 self.set_theme(theme_name)
                 return True
             else:
-                print("[ThemeManager] No theme preference in settings")
+                logger.info("[ThemeManager] No theme preference in settings")
                 return False
                 
         except Exception as e:
-            print(f"[ThemeManager] Error loading preference: {e}")
+            logger.info(f"[ThemeManager] Error loading preference: {e}")
             return False
     
     def get_available_themes(self):
@@ -238,7 +266,7 @@ class ThemeManager:
         theme_instance.validate()
         
         self.themes[name] = theme_instance
-        print(f"[ThemeManager] Added custom theme: {name}")
+        logger.info(f"[ThemeManager] Added custom theme: {name}")
 
 
 # Global singleton instance

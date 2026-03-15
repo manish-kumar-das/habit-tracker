@@ -63,3 +63,4 @@ data/profiles/*.png
 data/profiles/*.jpg
 data/profiles/*.jpeg
 !data/profiles/.gitkeep
+automated_checklist.py
